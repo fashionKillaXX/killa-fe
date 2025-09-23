@@ -2,6 +2,7 @@
 
 import { Product } from '@/lib/api';
 import { useSurvey } from '@/contexts/SurveyContext';
+import { useState, useEffect } from 'react';
 
 interface ProductDisplayProps {
   product: Product;
@@ -11,8 +12,31 @@ interface ProductDisplayProps {
 
 export default function ProductDisplay({ product, onRatingSelect, onSkip }: ProductDisplayProps) {
   const { currentSurveyStep, showFirstTick, showSecondTick, totalProductsRated, products, showSuccess } = useSurvey();
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const isSecondView = currentSurveyStep === 1;
   const isProcessing = showFirstTick || showSecondTick || showSuccess;
+
+  // Get available images - use image_list if available, otherwise fallback to image_url
+  const availableImages = product.image_list && product.image_list.length > 0 
+    ? product.image_list 
+    : [product.image_url];
+
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => (prev + 1) % availableImages.length);
+  };
+
+  const previousImage = () => {
+    setCurrentImageIndex((prev) => (prev - 1 + availableImages.length) % availableImages.length);
+  };
+
+  const goToImage = (index: number) => {
+    setCurrentImageIndex(index);
+  };
+
+  // Reset image index when product changes
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [product.id]);
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col justify-center font-serif py-4 lg:py-8">
@@ -55,19 +79,52 @@ export default function ProductDisplay({ product, onRatingSelect, onSkip }: Prod
           </div>
         )}
 
-        {/* Minimalist Image Section */}
+        {/* Image Carousel Section */}
         <div className="flex items-center justify-center p-6 lg:p-8">
           <div className="w-full max-w-sm lg:max-w-md aspect-square bg-gray-50 flex items-center justify-center overflow-hidden relative border border-black">
+            {/* Main Image */}
             <img
-              src={product.image_url}
-              alt={`Product ${product.id}`}
-              className="w-full h-full object-cover transition-all duration-500 hover:scale-105"
+              src={availableImages[currentImageIndex]}
+              alt={product.name || `Product ${product.id}`}
+              className="w-full h-full object-cover transition-all duration-500"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.style.display = 'none';
                 target.nextElementSibling?.classList.remove('hidden');
               }}
             />
+            
+            {/* Navigation Arrows - only show if multiple images */}
+            {availableImages.length > 1 && (
+              <>
+                <button
+                  onClick={previousImage}
+                  disabled={isProcessing}
+                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 border border-black w-8 h-8 flex items-center justify-center hover:bg-opacity-100 transition-all duration-300 disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                <button
+                  onClick={nextImage}
+                  disabled={isProcessing}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-white bg-opacity-80 border border-black w-8 h-8 flex items-center justify-center hover:bg-opacity-100 transition-all duration-300 disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </>
+            )}
+
+            {/* Image Counter - only show if multiple images */}
+            {availableImages.length > 1 && (
+              <div className="absolute top-2 right-2 bg-white bg-opacity-80 border border-black px-2 py-1 text-xs">
+                {currentImageIndex + 1}/{availableImages.length}
+              </div>
+            )}
+
             {/* Minimalist fallback */}
             <div className="w-full h-full bg-gray-100 flex items-center justify-center hidden">
               <div className="text-center">
@@ -81,6 +138,24 @@ export default function ProductDisplay({ product, onRatingSelect, onSkip }: Prod
             </div>
           </div>
         </div>
+
+        {/* Image Dots Navigation - only show if multiple images */}
+        {availableImages.length > 1 && (
+          <div className="flex justify-center gap-2 mb-4">
+            {availableImages.map((_, index) => (
+              <button
+                key={index}
+                onClick={() => goToImage(index)}
+                disabled={isProcessing}
+                className={`w-2 h-2 rounded-full transition-all duration-300 disabled:opacity-50 ${
+                  index === currentImageIndex 
+                    ? 'bg-black' 
+                    : 'bg-gray-300 hover:bg-gray-500'
+                }`}
+              />
+            ))}
+          </div>
+        )}
 
             {/* Minimalist Progress */}
             <div className="flex justify-center gap-2 mb-6 lg:mb-8">
@@ -96,11 +171,11 @@ export default function ProductDisplay({ product, onRatingSelect, onSkip }: Prod
             </div>
 
         {/* Elegant Price Display */}
-        {isSecondView && (
+        {isSecondView && product.metadata.price && (
           <div className="flex justify-center mb-4 lg:mb-6">
             <div className="border border-black px-4 lg:px-8 py-2 lg:py-3">
               <span className="text-black font-light text-base lg:text-xl tracking-[0.15em] lg:tracking-[0.2em]">
-                ₹{product.price.toLocaleString()}
+                ₹{parseInt(product.metadata.price).toLocaleString() || 'Price unavailable'}
               </span>
             </div>
           </div>

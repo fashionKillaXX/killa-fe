@@ -62,14 +62,18 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
   // Initialize feedback object when product changes
   useEffect(() => {
     if (currentProduct && (!currentFeedback || currentFeedback.product_id !== currentProduct.id)) {
+      // Extract price from metadata and convert to number, or null if not available
+      const priceStr = currentProduct.metadata.price;
+      const price = priceStr && priceStr.trim() !== '' ? parseInt(priceStr) : null;
+      
       const feedback: FeedbackData = {
         product_id: currentProduct.id,
-        price: currentProduct.price,
+        price: price,
         rating_without_price: null,
         rating_with_price: null,
       };
       setCurrentFeedback(feedback);
-      console.log(`Initialized feedback for product ${currentProduct.id}`);
+      console.log(`Initialized feedback for product ${currentProduct.id}, price: ${price}`);
     }
   }, [currentProduct, currentFeedback]);
 
@@ -87,9 +91,21 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
 
   const nextProduct = () => {
     if (currentSurveyStep === 0) {
-      // Move to second step (show price)
-      setCurrentSurveyStep(1);
-      console.log('Moving to second step (showing price)');
+      // Check if product has price - if not, skip price screen and submit directly
+      const hasPrice = currentProduct?.metadata?.price && currentProduct.metadata.price.trim() !== '';
+      
+      if (hasPrice) {
+        // Move to second step (show price)
+        setCurrentSurveyStep(1);
+        console.log('Moving to second step (showing price)');
+      } else {
+        // No price available - skip price screen and submit feedback directly
+        console.log('No price available - skipping price screen and submitting feedback');
+        // Don't change step, just submit current feedback
+        if (currentFeedback) {
+          submitFeedbackWithData(currentFeedback);
+        }
+      }
     }
     // Note: For step 1, we don't call nextProduct() - we call submitFeedback() directly
   };
@@ -115,13 +131,28 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       if (currentSurveyStep === 0) {
         // First feedback - show black tick
         setCurrentFeedback(updatedFeedback);
-        setShowFirstTick(true);
-        setTimeout(() => {
-          setShowFirstTick(false);
-          nextProduct(); // Move to price view
-        }, 2000);
+        
+        // Check if we have price to decide the flow
+        const hasPrice = currentProduct?.metadata?.price && currentProduct.metadata.price.trim() !== '';
+        
+        if (hasPrice) {
+          // Show first tick, then move to price view
+          setShowFirstTick(true);
+          setTimeout(() => {
+            setShowFirstTick(false);
+            nextProduct(); // Move to price view
+          }, 2000);
+        } else {
+          // No price - show second tick (green) and submit directly
+          setShowSecondTick(true);
+          setTimeout(() => {
+            setShowSecondTick(false);
+            submitFeedbackWithData(updatedFeedback);
+          }, 2000);
+        }
       } else {
         // Second feedback - show green tick then submit (works even if first was skipped)
+        setCurrentFeedback(updatedFeedback);
         setShowSecondTick(true);
         setTimeout(() => {
           setShowSecondTick(false);
@@ -133,31 +164,31 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
   };
 
   const submitFeedbackWithData = async (feedbackData: FeedbackData) => {
-    // Allow submission if at least one rating is provided
-    if (feedbackData.rating_without_price !== null || feedbackData.rating_with_price !== null) {
-      try {
-        console.log('Submitting feedback for product:', feedbackData.product_id);
-        console.log('Final feedback data:', feedbackData);
-        const success = await postFeedback(feedbackData);
-        
-        if (success) {
-          console.log("Feedback submitted successfully!");
-        } else {
-          console.error("Failed to submit feedback.");
-        }
-      } catch (error) {
-        console.error("Error submitting feedback:", error);
-      } finally {
-        // Mark product as completed and show success
-        if (currentProduct) {
-          setCompletedProductIds(prev => [...prev, currentProduct.id]);
-          console.log(`Product ${currentProduct.id} marked as completed`);
-        }
-        setCurrentFeedback(feedbackData); // Update state with final data
-        setShowSuccess(true);
+    // Always submit - backend expects both feedback_type and feedback_basis_price_type
+    // If user skipped first rating, it will be 'skip', if they skipped second, it will be 'skip'
+    try {
+      console.log('Submitting feedback for product:', feedbackData.product_id);
+      console.log('Final feedback data:', feedbackData);
+      console.log('Rating without price:', feedbackData.rating_without_price, '-> feedback_type');
+      console.log('Rating with price:', feedbackData.rating_with_price, '-> feedback_basis_price_type');
+      
+      const success = await postFeedback(feedbackData);
+      
+      if (success) {
+        console.log("Feedback submitted successfully!");
+      } else {
+        console.error("Failed to submit feedback.");
       }
-    } else {
-      console.error('Cannot submit feedback with no ratings:', feedbackData);
+    } catch (error) {
+      console.error("Error submitting feedback:", error);
+    } finally {
+      // Mark product as completed and show success
+      if (currentProduct) {
+        setCompletedProductIds(prev => [...prev, currentProduct.id]);
+        console.log(`Product ${currentProduct.id} marked as completed`);
+      }
+      setCurrentFeedback(feedbackData); // Update state with final data
+      setShowSuccess(true);
     }
   };
 

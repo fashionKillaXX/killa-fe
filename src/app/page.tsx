@@ -1,7 +1,6 @@
 "use client";
 
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { SessionProvider } from 'next-auth/react';
+import { useAuth } from '@/contexts/AuthContext';
 import { SurveyProvider, useSurvey } from '@/contexts/SurveyContext';
 import LandingPage from '@/components/LandingPage';
 import ProductDisplay from '@/components/ProductDisplay';
@@ -46,7 +45,19 @@ function SurveyApp() {
 }
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Show loading screen while checking authentication
+  if (isLoading) {
+    return (
+      <div className="w-full min-h-screen bg-white flex items-center justify-center font-serif">
+        <div className="text-center">
+          <div className="w-16 h-16 border border-black rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-black text-lg font-light tracking-wide">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show landing page if user is not authenticated
   if (!isAuthenticated) {
@@ -62,11 +73,5 @@ function AppContent() {
 }
 
 export default function Page() {
-  return (
-    <SessionProvider>
-      <AuthProvider>
-        <AppContent />
-      </AuthProvider>
-    </SessionProvider>
-  );
+  return <AppContent />;
 }
