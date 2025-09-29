@@ -1,77 +1,113 @@
 "use client";
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { exchangeCodeForToken, storeAuthTokens } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
-import { SurveyProvider, useSurvey } from '@/contexts/SurveyContext';
-import LandingPage from '@/components/LandingPage';
-import ProductDisplay from '@/components/ProductDisplay';
-import SuccessPopup from '@/components/SuccessPopup';
 
-function SurveyApp() {
-  const { currentProduct, isLoading, showSuccess, addFeedback, nextProduct } = useSurvey();
+export default function GoogleCallbackPage() {
+  const router = useRouter();
+  const { refreshAuth } = useAuth();
+  const [isProcessing, setIsProcessing] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
-  if (isLoading) {
+  useEffect(() => {
+    const handleCallback = async () => {
+      try {
+        setDebugInfo('Checking URL parameters...');
+        
+        // Use window.location instead of useSearchParams to avoid Suspense issues
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const errorParam = urlParams.get('error');
+        const state = urlParams.get('state');
+
+        console.log('OAuth callback received:', { code: !!code, error: errorParam, state });
+        setDebugInfo(`Code: ${!!code}, Error: ${errorParam}, State: ${state}`);
+
+        if (errorParam) {
+          setError(`OAuth error: ${errorParam}`);
+          setIsProcessing(false);
+          return;
+        }
+
+        if (!code) {
+          setError('No authorization code received');
+          setIsProcessing(false);
+          return;
+        }
+
+        setDebugInfo('Exchanging code for token...');
+        console.log('Exchanging code for token...');
+        
+        // Exchange code for tokens via backend
+        const tokens = await exchangeCodeForToken(code);
+        console.log('Received tokens:', { hasAccessToken: !!tokens.access_token, user: tokens.user });
+        
+        setDebugInfo('Storing authentication data...');
+        // Store tokens and user data
+        storeAuthTokens(tokens);
+
+        setDebugInfo('Updating auth state...');
+        // Refresh the auth context to reflect the new auth state
+        refreshAuth();
+
+        setDebugInfo('Redirecting to main app...');
+        // Small delay to ensure storage and context update are complete
+        setTimeout(() => {
+          router.push('/');
+        }, 500);
+      } catch (err) {
+        console.error('OAuth callback error:', err);
+        setError(err instanceof Error ? err.message : 'Authentication failed');
+        setIsProcessing(false);
+      }
+    };
+
+    // Only run on client side to avoid SSR issues
+    if (typeof window !== 'undefined') {
+      handleCallback();
+    }
+  }, [router, refreshAuth]);
+
+  if (error) {
     return (
-      <div className="w-full min-h-screen bg-white flex items-center justify-center font-serif">
-        <div className="text-center">
-          <div className="w-16 h-16 border border-black rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-black text-lg font-light tracking-wide">Loading products...</p>
+      <div className="min-h-screen bg-white flex items-center justify-center font-serif">
+        <div className="max-w-md mx-auto text-center p-8">
+          <h1 className="text-2xl font-light text-red-600 mb-4 tracking-wide">
+            Authentication Failed
+          </h1>
+          <p className="text-gray-600 mb-8">{error}</p>
+          <button
+            onClick={() => router.push('/')}
+            className="border border-black px-8 py-3 text-black text-sm font-light tracking-wide hover:bg-black hover:text-white transition-all duration-300 uppercase"
+          >
+            Return Home
+          </button>
         </div>
       </div>
     );
-  }
-
-  if (!currentProduct) {
-    return (
-      <div className="w-full min-h-screen bg-white flex items-center justify-center font-serif">
-        <div className="text-center">
-          <p className="text-black text-lg font-light tracking-wide">No products available</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show success screen instead of product display when survey is complete
-  if (showSuccess) {
-    return <SuccessPopup />;
   }
 
   return (
-    <ProductDisplay
-      product={currentProduct}
-      onRatingSelect={addFeedback}
-      onSkip={nextProduct}
-    />
-  );
-}
-
-function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  // Show loading screen while checking authentication
-  if (isLoading) {
-    return (
-      <div className="w-full min-h-screen bg-white flex items-center justify-center font-serif">
-        <div className="text-center">
-          <div className="w-16 h-16 border border-black rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-black text-lg font-light tracking-wide">Loading...</p>
+    <div className="min-h-screen bg-white flex items-center justify-center font-serif">
+      <div className="max-w-md mx-auto text-center p-8">
+        <div className="mb-8">
+          <div className="w-12 h-12 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h1 className="text-2xl font-light text-black mb-4 tracking-wide">
+            Completing Sign In
+          </h1>
+          <p className="text-gray-600 mb-4">
+            {isProcessing ? 'Processing your authentication...' : 'Redirecting...'}
+          </p>
+          {debugInfo && (
+            <p className="text-sm text-gray-500 mt-4 font-mono">
+              {debugInfo}
+            </p>
+          )}
         </div>
       </div>
-    );
-  }
-
-  // Show landing page if user is not authenticated
-  if (!isAuthenticated) {
-    return <LandingPage />;
-  }
-
-  // Show survey if user is authenticated
-  return (
-    <SurveyProvider>
-      <SurveyApp />
-    </SurveyProvider>
+    </div>
   );
-}
-
-export default function Page() {
-  return <AppContent />;
 }

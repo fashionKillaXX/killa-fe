@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { exchangeCodeForToken, storeAuthTokens } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function GoogleCallbackPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { refreshAuth } = useAuth();
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -17,15 +16,18 @@ export default function GoogleCallbackPage() {
     const handleCallback = async () => {
       try {
         setDebugInfo('Checking URL parameters...');
-        const code = searchParams.get('code');
-        const error = searchParams.get('error');
-        const state = searchParams.get('state');
 
-        console.log('OAuth callback received:', { code: !!code, error, state });
-        setDebugInfo(`Code: ${!!code}, Error: ${error}, State: ${state}`);
+        // Use window.location instead of useSearchParams to avoid build issues
+        const urlParams = new URLSearchParams(window.location.search);
+        const code = urlParams.get('code');
+        const errorParam = urlParams.get('error');
+        const state = urlParams.get('state');
 
-        if (error) {
-          setError(`OAuth error: ${error}`);
+        console.log('OAuth callback received:', { code: !!code, error: errorParam, state });
+        setDebugInfo(`Code: ${!!code}, Error: ${errorParam}, State: ${state}`);
+
+        if (errorParam) {
+          setError(`OAuth error: ${errorParam}`);
           setIsProcessing(false);
           return;
         }
@@ -38,11 +40,11 @@ export default function GoogleCallbackPage() {
 
         setDebugInfo('Exchanging code for token...');
         console.log('Exchanging code for token...');
-        
+
         // Exchange code for tokens via backend
         const tokens = await exchangeCodeForToken(code);
         console.log('Received tokens:', { hasAccessToken: !!tokens.access_token, user: tokens.user });
-        
+
         setDebugInfo('Storing authentication data...');
         // Store tokens and user data
         storeAuthTokens(tokens);
@@ -63,8 +65,11 @@ export default function GoogleCallbackPage() {
       }
     };
 
-    handleCallback();
-  }, [searchParams, router]);
+    // Only run on client side
+    if (typeof window !== 'undefined') {
+      handleCallback();
+    }
+  }, [router, refreshAuth]);
 
   if (error) {
     return (
