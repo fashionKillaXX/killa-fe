@@ -15,19 +15,18 @@ export default function LandingPage() {
           {/* Elegant Heading */}
           <div className="mb-16 lg:mb-20">
             <h1 className="text-2xl lg:text-5xl font-light text-black mb-6 lg:mb-8 tracking-[0.15em] lg:tracking-[0.2em] leading-relaxed">
-              FASHION SURVEY
+              RATE THE FIT
             </h1>
             <div className="w-24 h-px bg-black mx-auto mb-8 lg:mb-12"></div>
             <h2 className="text-lg lg:text-2xl font-light text-gray-600 tracking-[0.1em] lg:tracking-[0.15em]">
-              PRODUCT RATINGS
+              FITCURRY SPICE BOARD
             </h2>
           </div>
 
           {/* Description */}
           <div className="mb-12 lg:mb-16 max-w-md">
             <p className="text-sm lg:text-base text-gray-600 font-light leading-loose tracking-wide">
-              Share your opinion on fashion products to help improve recommendations. 
-              Your feedback helps us understand style preferences.
+              Help us redefine fashion, lend us your eye for good fits by rating each look. Your curation shapes tomorrow's style.
             </p>
           </div>
 
