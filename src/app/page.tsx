@@ -1,89 +1,52 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { exchangeCodeForToken, storeAuthTokens } from '@/lib/auth';
 import { useAuth } from '@/contexts/AuthContext';
+import { SurveyProvider } from '@/contexts/SurveyContext';
+import LandingPage from '@/components/LandingPage';
+import ProductDisplay from '@/components/ProductDisplay';
+import SuccessPopup from '@/components/SuccessPopup';
+import { useSurvey } from '@/contexts/SurveyContext';
 
-export default function GoogleCallbackPage() {
-  const router = useRouter();
-  const { refreshAuth } = useAuth();
-  const [isProcessing, setIsProcessing] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [debugInfo, setDebugInfo] = useState<string>('');
+// Survey App Component (shows when authenticated)
+function SurveyApp() {
+  const {
+    currentProduct,
+    currentSurveyStep,
+    isLoading,
+    showSuccess,
+    addFeedback,
+    nextProduct,
+    submitFeedback,
+    startNewSurvey
+  } = useSurvey();
+  const { user, signOut } = useAuth();
 
-  useEffect(() => {
-    const handleCallback = async () => {
-      try {
-        setDebugInfo('Checking URL parameters...');
-        
-        // Use window.location instead of useSearchParams to avoid Suspense issues
-        const urlParams = new URLSearchParams(window.location.search);
-        const code = urlParams.get('code');
-        const errorParam = urlParams.get('error');
-        const state = urlParams.get('state');
+  // Debug logging
+  console.log('Survey state:', { showSuccess, isLoading, currentProduct: !!currentProduct });
 
-        console.log('OAuth callback received:', { code: !!code, error: errorParam, state });
-        setDebugInfo(`Code: ${!!code}, Error: ${errorParam}, State: ${state}`);
-
-        if (errorParam) {
-          setError(`OAuth error: ${errorParam}`);
-          setIsProcessing(false);
-          return;
-        }
-
-        if (!code) {
-          setError('No authorization code received');
-          setIsProcessing(false);
-          return;
-        }
-
-        setDebugInfo('Exchanging code for token...');
-        console.log('Exchanging code for token...');
-        
-        // Exchange code for tokens via backend
-        const tokens = await exchangeCodeForToken(code);
-        console.log('Received tokens:', { hasAccessToken: !!tokens.access_token, user: tokens.user });
-        
-        setDebugInfo('Storing authentication data...');
-        // Store tokens and user data
-        storeAuthTokens(tokens);
-
-        setDebugInfo('Updating auth state...');
-        // Refresh the auth context to reflect the new auth state
-        refreshAuth();
-
-        setDebugInfo('Redirecting to main app...');
-        // Small delay to ensure storage and context update are complete
-        setTimeout(() => {
-          router.push('/');
-        }, 500);
-      } catch (err) {
-        console.error('OAuth callback error:', err);
-        setError(err instanceof Error ? err.message : 'Authentication failed');
-        setIsProcessing(false);
-      }
-    };
-
-    // Only run on client side to avoid SSR issues
-    if (typeof window !== 'undefined') {
-      handleCallback();
-    }
-  }, [router, refreshAuth]);
-
-  if (error) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center font-serif">
         <div className="max-w-md mx-auto text-center p-8">
-          <h1 className="text-2xl font-light text-red-600 mb-4 tracking-wide">
-            Authentication Failed
-          </h1>
-          <p className="text-gray-600 mb-8">{error}</p>
+          <div className="w-12 h-12 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h1 className="text-2xl font-light text-black mb-4 tracking-wide">Loading Products</h1>
+          <p className="text-gray-600 mb-4">Preparing your fashion survey...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentProduct) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center font-serif">
+        <div className="max-w-md mx-auto text-center p-8">
+          <h1 className="text-2xl font-light text-black mb-4 tracking-wide">No Products Available</h1>
+          <p className="text-gray-600 mb-4">Unable to load products for the survey.</p>
           <button
-            onClick={() => router.push('/')}
-            className="border border-black px-8 py-3 text-black text-sm font-light tracking-wide hover:bg-black hover:text-white transition-all duration-300 uppercase"
+            onClick={signOut}
+            className="text-black underline hover:no-underline"
           >
-            Return Home
+            Sign Out
           </button>
         </div>
       </div>
@@ -91,23 +54,61 @@ export default function GoogleCallbackPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center font-serif">
-      <div className="max-w-md mx-auto text-center p-8">
-        <div className="mb-8">
-          <div className="w-12 h-12 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h1 className="text-2xl font-light text-black mb-4 tracking-wide">
-            Completing Sign In
-          </h1>
-          <p className="text-gray-600 mb-4">
-            {isProcessing ? 'Processing your authentication...' : 'Redirecting...'}
-          </p>
-          {debugInfo && (
-            <p className="text-sm text-gray-500 mt-4 font-mono">
-              {debugInfo}
-            </p>
-          )}
-        </div>
+    <div className="relative">
+      {/* User Info Bar */}
+      <div className="fixed top-4 right-4 z-10 flex items-center gap-4 bg-white bg-opacity-90 backdrop-blur-sm px-4 py-2 rounded-lg border border-gray-200">
+        <span className="text-sm text-gray-700">Welcome, {user?.name}</span>
+        <button
+          onClick={signOut}
+          className="text-xs text-gray-500 hover:text-black transition-colors"
+        >
+          Sign Out
+        </button>
       </div>
+
+      {/* Survey Content */}
+      <ProductDisplay
+        product={currentProduct}
+        onRatingSelect={(rating) => {
+          addFeedback(rating); // Context handles the flow internally
+        }}
+        onSkip={() => {
+          addFeedback(0); // 0 maps to 'skip' type
+        }}
+      />
+
+      {/* Success Popup */}
+      {showSuccess && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <SuccessPopup />
+        </div>
+      )}
     </div>
   );
+}
+
+// Main Page Component
+export default function HomePage() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center font-serif">
+        <div className="max-w-md mx-auto text-center p-8">
+          <div className="w-12 h-12 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h1 className="text-2xl font-light text-black mb-4 tracking-wide">Loading...</h1>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <SurveyProvider>
+        <SurveyApp />
+      </SurveyProvider>
+    );
+  }
+
+  return <LandingPage />;
 }

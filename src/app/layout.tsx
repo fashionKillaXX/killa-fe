@@ -4,8 +4,8 @@ import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "Fashion Killa Survey",
-  description: "Customer survey for fashion products",
+  title: "Fashion Survey",
+  description: "Help us understand fashion preferences through product ratings",
 };
 
 export default function RootLayout({
@@ -17,11 +17,6 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
-        <Script
-          type="module"
-          strategy="afterInteractive"
-          src="https://cdn.jsdelivr.net/gh/onlook-dev/onlook@main/apps/web/client/public/onlook-preload-script.js"
-        />
       </body>
     </html>
   );

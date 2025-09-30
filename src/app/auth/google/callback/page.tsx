@@ -11,10 +11,18 @@ export default function GoogleCallbackPage() {
   const [isProcessing, setIsProcessing] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<string>('');
+  const [hasProcessed, setHasProcessed] = useState(false);
 
   useEffect(() => {
     const handleCallback = async () => {
+      // Prevent multiple calls
+      if (hasProcessed) {
+        console.log('Callback already processed, skipping');
+        return;
+      }
+      
       try {
+        setHasProcessed(true);
         setDebugInfo('Checking URL parameters...');
 
         // Use window.location instead of useSearchParams to avoid build issues
@@ -62,14 +70,15 @@ export default function GoogleCallbackPage() {
         console.error('OAuth callback error:', err);
         setError(err instanceof Error ? err.message : 'Authentication failed');
         setIsProcessing(false);
+        setHasProcessed(false); // Reset on error to allow retry
       }
     };
 
-    // Only run on client side
-    if (typeof window !== 'undefined') {
+    // Only run on client side and if not already processed
+    if (typeof window !== 'undefined' && !hasProcessed) {
       handleCallback();
     }
-  }, [router, refreshAuth]);
+  }, [router, refreshAuth, hasProcessed]);
 
   if (error) {
     return (

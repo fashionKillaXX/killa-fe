@@ -3,6 +3,7 @@
 import { Product } from '@/lib/api';
 import { useSurvey } from '@/contexts/SurveyContext';
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 interface ProductDisplayProps {
   product: Product;
@@ -83,10 +84,13 @@ export default function ProductDisplay({ product, onRatingSelect, onSkip }: Prod
         <div className="flex items-center justify-center p-6 lg:p-8">
           <div className="w-full max-w-sm lg:max-w-md aspect-square bg-gray-50 flex items-center justify-center overflow-hidden relative border border-black">
             {/* Main Image */}
-            <img
+            <Image
               src={availableImages[currentImageIndex]}
               alt={product.name || `Product ${product.id}`}
-              className="w-full h-full object-cover transition-all duration-500"
+              fill
+              className="object-cover transition-all duration-500"
+              priority
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               onError={(e) => {
                 const target = e.target as HTMLImageElement;
                 target.style.display = 'none';
@@ -139,21 +143,32 @@ export default function ProductDisplay({ product, onRatingSelect, onSkip }: Prod
           </div>
         </div>
 
-        {/* Image Dots Navigation - only show if multiple images */}
+        {/* Image Thumbnail Navigation - only show if multiple images */}
         {availableImages.length > 1 && (
-          <div className="flex justify-center gap-2 mb-4">
-            {availableImages.map((_, index) => (
+          <div className="flex justify-center gap-2 mb-4 px-4">
+            {availableImages.slice(0, 5).map((imageUrl, index) => (
               <button
                 key={index}
                 onClick={() => goToImage(index)}
                 disabled={isProcessing}
-                className={`w-2 h-2 rounded-full transition-all duration-300 disabled:opacity-50 ${
-                  index === currentImageIndex 
-                    ? 'bg-black' 
-                    : 'bg-gray-300 hover:bg-gray-500'
+                className={`relative w-12 h-12 border-2 transition-all duration-300 disabled:opacity-50 ${
+                  index === currentImageIndex ? 'border-black' : 'border-gray-300 hover:border-gray-500'
                 }`}
-              />
+              >
+                <Image
+                  src={imageUrl}
+                  alt={`View ${index + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="48px"
+                />
+              </button>
             ))}
+            {availableImages.length > 5 && (
+              <div className="flex items-center text-xs text-gray-500 ml-2">
+                +{availableImages.length - 5} more
+              </div>
+            )}
           </div>
         )}
 
@@ -189,7 +204,7 @@ export default function ProductDisplay({ product, onRatingSelect, onSkip }: Prod
                   HOW LIKELY ARE YOU
                 </h1>
                 <h2 className="text-lg lg:text-2xl font-light text-black tracking-[0.1em] lg:tracking-[0.15em] leading-relaxed">
-                  {isSecondView ? "TO BUY THIS?" : "TO WEAR THIS?"}
+                  {isSecondView ? "WOULD YOU BUY THIS?" : "WOULD YOU RECOMMEND THIS?"}
                 </h2>
               </div>
 

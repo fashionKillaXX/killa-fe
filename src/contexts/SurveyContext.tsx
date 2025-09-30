@@ -127,38 +127,26 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       console.log(`Added ${currentSurveyStep === 0 ? 'without-price' : 'with-price'} rating:`, rating);
       console.log('Updated feedback object:', updatedFeedback);
 
-      // Show appropriate tick based on current step
+      // Update feedback and proceed immediately
+      setCurrentFeedback(updatedFeedback);
+      
       if (currentSurveyStep === 0) {
-        // First feedback - show black tick
-        setCurrentFeedback(updatedFeedback);
-        
-        // Check if we have price to decide the flow
+        // First step completed
         const hasPrice = currentProduct?.metadata?.price && currentProduct.metadata.price.trim() !== '';
         
         if (hasPrice) {
-          // Show first tick, then move to price view
-          setShowFirstTick(true);
-          setTimeout(() => {
-            setShowFirstTick(false);
-            nextProduct(); // Move to price view
-          }, 2000);
+          // Move to second step (show price)
+          console.log('Moving to price step');
+          setCurrentSurveyStep(1);
         } else {
-          // No price - show second tick (green) and submit directly
-          setShowSecondTick(true);
-          setTimeout(() => {
-            setShowSecondTick(false);
-            submitFeedbackWithData(updatedFeedback);
-          }, 2000);
+          // No price - submit feedback directly
+          console.log('No price available - submitting feedback');
+          submitFeedbackWithData(updatedFeedback);
         }
       } else {
-        // Second feedback - show green tick then submit (works even if first was skipped)
-        setCurrentFeedback(updatedFeedback);
-        setShowSecondTick(true);
-        setTimeout(() => {
-          setShowSecondTick(false);
-          // Submit the updatedFeedback directly instead of relying on state
-          submitFeedbackWithData(updatedFeedback);
-        }, 2000);
+        // Second step completed - submit feedback
+        console.log('Second step completed - submitting feedback');
+        submitFeedbackWithData(updatedFeedback);
       }
     }
   };
@@ -188,6 +176,7 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
         console.log(`Product ${currentProduct.id} marked as completed`);
       }
       setCurrentFeedback(feedbackData); // Update state with final data
+      console.log('Setting showSuccess to true');
       setShowSuccess(true);
     }
   };
