@@ -4,33 +4,40 @@ import { useAuth } from '@/contexts/AuthContext';
 import { SurveyProvider } from '@/contexts/SurveyContext';
 import LandingPage from '@/components/LandingPage';
 import ProductDisplay from '@/components/ProductDisplay';
-import SuccessPopup from '@/components/SuccessPopup';
 import { useSurvey } from '@/contexts/SurveyContext';
 
 // Survey App Component (shows when authenticated)
+
+
+
 function SurveyApp() {
   const {
     currentProduct,
-    currentSurveyStep,
     isLoading,
-    showSuccess,
+    isLoadingNextBatch,
     addFeedback,
-    nextProduct,
-    submitFeedback,
-    startNewSurvey
   } = useSurvey();
   const { user, signOut } = useAuth();
 
-  // Debug logging
-  console.log('Survey state:', { showSuccess, isLoading, currentProduct: !!currentProduct });
+  const waitforfeedback=async()=>{
+    await addFeedback(0);
+  };
 
-  if (isLoading) {
+  // Debug logging
+  console.log('Survey state:', { isLoading, isLoadingNextBatch, currentProduct: !!currentProduct });
+  
+
+  if (isLoading || isLoadingNextBatch) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center font-serif">
         <div className="max-w-md mx-auto text-center p-8">
           <div className="w-12 h-12 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h1 className="text-2xl font-light text-black mb-4 tracking-wide">Loading Products</h1>
-          <p className="text-gray-600 mb-4">Preparing your fashion survey...</p>
+          <h1 className="text-2xl font-light text-black mb-4 tracking-wide">
+            {isLoadingNextBatch ? "Loading Next Batch" : "Loading Products"}
+          </h1>
+          <p className="text-gray-600 mb-4">
+            {isLoadingNextBatch ? "Fetching more products for you..." : "Preparing your fashion survey..."}
+          </p>
         </div>
       </div>
     );
@@ -70,19 +77,14 @@ function SurveyApp() {
       <ProductDisplay
         product={currentProduct}
         onRatingSelect={(rating) => {
-          addFeedback(rating); // Context handles the flow internally
+          addFeedback(rating);
+          // Context handles the flow internally
         }}
         onSkip={() => {
           addFeedback(0); // 0 maps to 'skip' type
         }}
       />
 
-      {/* Success Popup */}
-      {showSuccess && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-          <SuccessPopup />
-        </div>
-      )}
     </div>
   );
 }

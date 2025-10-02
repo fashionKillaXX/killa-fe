@@ -1,21 +1,20 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { Product, FeedbackData, fetchProducts, postFeedback } from "@/lib/api";
+import { Product, FeedbackData, fetchProducts, fetchNextBatch, postFeedback } from "@/lib/api";
 
 interface SurveyContextType {
   products: Product[];
   currentProductIndex: number;
   currentProduct: Product | null;
-  currentSurveyStep: number; // 0 = without price, 1 = with price
   currentFeedback: FeedbackData | null;
   isLoading: boolean;
-  showSuccess: boolean;
+  isLoadingNextBatch: boolean;
+  isSubmitting: boolean;
   showFirstTick: boolean;
   showSecondTick: boolean;
   completedProductIds: string[];
   totalProductsRated: number;
-  nextProduct: () => void;
   addFeedback: (rating: number) => void;
   submitFeedback: () => Promise<void>;
   resetSurvey: () => void;
@@ -28,19 +27,19 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
   // State management
   const [products, setProducts] = useState<Product[]>([]);
   const [currentProductIndex, setCurrentProductIndex] = useState(0);
-  const [currentSurveyStep, setCurrentSurveyStep] = useState(0); // 0 = without price, 1 = with price
   const [currentFeedback, setCurrentFeedback] = useState<FeedbackData | null>(
     null
   );
   const [isLoading, setIsLoading] = useState(true);
-  const [showSuccess, setShowSuccess] = useState(false);
   const [showFirstTick, setShowFirstTick] = useState(false);
   const [showSecondTick, setShowSecondTick] = useState(false);
   const [completedProductIds, setCompletedProductIds] = useState<string[]>([]);
+  const [allSeenProductIds, setAllSeenProductIds] = useState<string[]>([]);
+  const [isLoadingNextBatch, setIsLoadingNextBatch] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Derived state
   const currentProduct = products[currentProductIndex] || null;
-  const isSecondView = currentSurveyStep === 1;
   const totalProductsRated = completedProductIds.length;
 
   // Load products on component mount
@@ -51,6 +50,9 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
         const fetchedProducts = await fetchProducts();
         console.log(`Loaded ${fetchedProducts.length} products for survey`);
         setProducts(fetchedProducts);
+        // Initialize seen products list with current batch
+        const productIds = fetchedProducts.map(p => p.id);
+        setAllSeenProductIds(productIds);
       } catch (error) {
         console.error("Failed to load products:", error);
       } finally {
@@ -97,132 +99,120 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
     return 0;
   };
 
-  const nextProduct = () => {
-    if (currentSurveyStep === 0) {
-      // Check if product has price - if not, skip price screen and submit directly
-      const hasPrice =
-        currentProduct?.metadata?.price &&
-        currentProduct.metadata.price.trim() !== "";
-
-      if (hasPrice) {
-        // Move to second step (show price)
-        setCurrentSurveyStep(1);
-        console.log("Moving to second step (showing price)");
+  const loadNextBatch = async (): Promise<boolean> => {
+    setIsLoadingNextBatch(true);
+    try {
+      console.log("Loading next batch of products...");
+      const nextBatch = await fetchNextBatch(allSeenProductIds);
+      
+      if (nextBatch.length > 0) {
+        console.log(`Loaded ${nextBatch.length} new products`);
+        setProducts(nextBatch);
+        setCurrentProductIndex(0);
+        setCompletedProductIds([]);
+        
+        // Add new product IDs to seen list
+        const newProductIds = nextBatch.map(p => p.id);
+        setAllSeenProductIds(prev => [...prev, ...newProductIds]);
+        
+        return true;
       } else {
-        // No price available - skip price screen and submit feedback directly
-        console.log(
-          "No price available - skipping price screen and submitting feedback"
-        );
-        // Don't change step, just submit current feedback
-        if (currentFeedback) {
-          submitFeedbackWithData(currentFeedback);
-        }
+        console.log("No more products available from backend");
+        return false;
       }
+    } catch (error) {
+      console.error("Error loading next batch:", error);
+      return false;
+    } finally {
+      setIsLoadingNextBatch(false);
     }
-    // Note: For step 1, we don't call nextProduct() - we call submitFeedback() directly
   };
 
-  const addFeedback = (rating: number) => {
+  const moveToNextProduct = async () => {
+    console.log("moving to new products")
+    // IMPORTANT: Reset state FIRST before changing product
+    setCurrentFeedback(null);
+    setShowFirstTick(false);
+    setShowSecondTick(false);
+
+    
+    
+    // Find next available product that hasn't been rated
+    const availableProducts = products.filter(
+      (p) => !completedProductIds.includes(p.id)
+    );
+
+    if (availableProducts.length > 0) {
+      // Find index of next available product
+      const nextIndex = getNextAvailableProduct();
+      setCurrentProductIndex(nextIndex+1);
+      console.log(
+        `Moving to next product: ${products[nextIndex]?.id} (${availableProducts.length} remaining)`
+      );
+    } else {
+      // All products completed, try to load next batch
+      console.log("All products completed! Attempting to load next batch...");
+      const batchLoaded = await loadNextBatch();
+      
+      // if (!batchLoaded) {
+      //   // No more products available, start over with first batch
+      //   console.log("No more batches available, starting over with first product");
+      //   setCurrentProductIndex(0);
+      //   setCompletedProductIds([]); // Reset completed products
+      // }
+    }
+  };
+
+
+  const addFeedback = async (rating: number) => {
     // Prevent multiple ratings while processing
-    if (showFirstTick || showSecondTick || showSuccess) {
-      console.log("Ignoring rating - already processing feedback");
+    if (isSubmitting) {
+      console.log("Ignoring rating - already submitting feedback");
       return;
     }
 
     if (currentProduct && currentFeedback) {
-      // If rating is 0, it means skip - go to next product immediately
-      if (rating === 0) {
-        console.log("Skip clicked - moving to next product");
-        // Add current product to completed list so we don't see it again
-        setCompletedProductIds(prev => [...prev, currentProduct.id]);
-        // Move to next product
-        const nextIndex = (currentProductIndex + 1) % products.length;
-        console.log(`Moving from index ${currentProductIndex} to ${nextIndex}`);
-        setCurrentProductIndex(nextIndex);
-        setCurrentSurveyStep(0);
-        setCurrentFeedback(null);
-        return;
-      }
-
       const updatedFeedback: FeedbackData = {
         ...currentFeedback,
-        rating_without_price:
-          currentSurveyStep === 0
-            ? rating
-            : currentFeedback.rating_without_price,
-        rating_with_price:
-          currentSurveyStep === 1 ? rating : currentFeedback.rating_with_price,
+        rating_without_price: rating,
+        rating_with_price: rating,
       };
 
-      console.log(
-        `Added ${
-          currentSurveyStep === 0 ? "without-price" : "with-price"
-        } rating:`,
-        rating
-      );
-      console.log("Updated feedback object:", updatedFeedback);
+      console.log("Added rating:", rating);
+      console.log("Feedback object:", updatedFeedback);
 
-      // Update feedback and proceed immediately
-      setCurrentFeedback(updatedFeedback);
-
-      if (currentSurveyStep === 0) {
-        // First step completed
-        const hasPrice =
-          currentProduct?.metadata?.price &&
-          currentProduct.metadata.price.trim() !== "";
-
-        if (hasPrice) {
-          // Move to second step (show price)
-          console.log("Moving to price step");
-          setCurrentSurveyStep(1);
-        } else {
-          // No price - submit feedback directly
-          console.log("No price available - submitting feedback");
-          submitFeedbackWithData(updatedFeedback);
-        }
-      } else {
-        // Second step completed - submit feedback
-        console.log("Second step completed - submitting feedback");
-        submitFeedbackWithData(updatedFeedback);
-      }
+      // Submit feedback immediately
+      await submitFeedbackWithData(updatedFeedback);
     }
   };
 
   const submitFeedbackWithData = async (feedbackData: FeedbackData) => {
-    // Always submit - backend expects both feedback_type and feedback_basis_price_type
-    // If user skipped first rating, it will be 'skip', if they skipped second, it will be 'skip'
+    setIsSubmitting(true);
+    
     try {
       console.log("Submitting feedback for product:", feedbackData.product_id);
-      console.log("Final feedback data:", feedbackData);
-      console.log(
-        "Rating without price:",
-        feedbackData.rating_without_price,
-        "-> feedback_type"
-      );
-      console.log(
-        "Rating with price:",
-        feedbackData.rating_with_price,
-        "-> feedback_basis_price_type"
-      );
-
+      
+      // WAIT for API to respond before moving
       const success = await postFeedback(feedbackData);
 
       if (success) {
         console.log("Feedback submitted successfully!");
+        
+        // Mark product as completed
+        if (currentProduct) {
+          setCompletedProductIds((prev) => [...prev, currentProduct.id]);
+          console.log(`Product ${currentProduct.id} marked as completed`);
+        }
+        
+        // Move to next product ONLY after successful API call
+        await moveToNextProduct();
       } else {
-        console.error("Failed to submit feedback.");
+        console.error("Failed to submit feedback - NOT moving to next product");
       }
     } catch (error) {
       console.error("Error submitting feedback:", error);
     } finally {
-      // Mark product as completed and show success
-      if (currentProduct) {
-        setCompletedProductIds((prev) => [...prev, currentProduct.id]);
-        console.log(`Product ${currentProduct.id} marked as completed`);
-      }
-      setCurrentFeedback(feedbackData); // Update state with final data
-      console.log("Setting showSuccess to true");
-      setShowSuccess(true);
+      setIsSubmitting(false);
     }
   };
 
@@ -238,43 +228,10 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const startNewSurvey = () => {
-    // Find next available product that hasn't been rated
-    const availableProducts = products.filter(
-      (p) => !completedProductIds.includes(p.id)
-    );
-
-    if (availableProducts.length > 0) {
-      // Find index of next available product
-      const nextIndex = getNextAvailableProduct();
-      setCurrentProductIndex(nextIndex);
-      console.log(
-        `Moving to next product: ${products[nextIndex]?.id} (${availableProducts.length} remaining)`
-      );
-    } else {
-      // All products completed, start over with first product
-      setCurrentProductIndex(0);
-      setCompletedProductIds([]); // Reset completed products
-      console.log("All products completed! Starting over with full catalog.");
-    }
-
-    setCurrentSurveyStep(0);
-    setCurrentFeedback(null);
-    setShowSuccess(false);
-    setShowFirstTick(false);
-    setShowSecondTick(false);
-
-    console.log(
-      "Started new survey, remaining products:",
-      products.length - completedProductIds.length
-    );
-  };
 
   const resetSurvey = () => {
     setCurrentProductIndex(0);
-    setCurrentSurveyStep(0);
     setCurrentFeedback(null);
-    setShowSuccess(false);
     setShowFirstTick(false);
     setShowSecondTick(false);
     setCompletedProductIds([]);
@@ -287,19 +244,18 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
         products,
         currentProductIndex,
         currentProduct,
-        currentSurveyStep,
         currentFeedback,
         isLoading,
-        showSuccess,
+        isLoadingNextBatch,
+        isSubmitting,
         showFirstTick,
         showSecondTick,
         completedProductIds,
         totalProductsRated,
-        nextProduct,
         addFeedback,
         submitFeedback,
         resetSurvey,
-        startNewSurvey,
+        startNewSurvey: resetSurvey,
       }}
     >
       {children}

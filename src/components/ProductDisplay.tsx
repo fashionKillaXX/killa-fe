@@ -17,12 +17,11 @@ export default function ProductDisplay({
   onSkip,
 }: ProductDisplayProps) {
   const {
-    currentSurveyStep,
     showFirstTick,
     showSecondTick,
     totalProductsRated,
     products,
-    showSuccess,
+    isSubmitting,
   } = useSurvey();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isImageLoading, setIsImageLoading] = useState(true);
@@ -31,8 +30,15 @@ export default function ProductDisplay({
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
   const imageRef = useRef<HTMLDivElement>(null);
-  const isSecondView = currentSurveyStep === 1;
-  const isProcessing = showFirstTick || showSecondTick || showSuccess;
+  const isProcessing = showFirstTick || showSecondTick || isSubmitting;
+
+  // Reset image state when product changes
+  useEffect(() => {
+    setCurrentImageIndex(0);
+    setIsImageLoading(true);
+    setDragOffset(0);
+    setIsDragging(false);
+  }, [product.id]);
 
   // Get available images - use image_list if available, otherwise fallback to image_url
   const availableImages =
@@ -332,25 +338,6 @@ export default function ProductDisplay({
           </div>
         )}
 
-        {/* Product Counter
-        <div className="flex justify-center mb-4 lg:mb-6">
-          <div className="text-gray-500 text-xs lg:text-sm font-light tracking-wide">
-            Product {totalProductsRated + 1} of {products.length}
-          </div>
-        </div> */}
-
-        {/* Elegant Price Display */}
-        {isSecondView && product.metadata.price && (
-          <div className="flex justify-center mb-4 lg:mb-6">
-            <div className="border border-black px-4 lg:px-8 py-2 lg:py-3">
-              <span className="text-black font-light text-base lg:text-xl tracking-[0.15em] lg:tracking-[0.2em]">
-                ₹
-                {parseInt(product.metadata.price).toLocaleString() ||
-                  "Price unavailable"}
-              </span>
-            </div>
-          </div>
-        )}
 
         {/* Premium Content Section */}
         <div className="px-4 lg:px-8 pb-6 lg:pb-8">
@@ -385,22 +372,20 @@ export default function ProductDisplay({
             </div>
           </div>
 
-          {/* Minimal Skip Button - Only show on first survey */}
-          {!isSecondView && (
-            <div className="flex justify-center mt-4 lg:mt-6">
-              <button
-                onClick={() => !isProcessing && onSkip()}
-                disabled={isProcessing}
-                className={`border border-gray-400 px-6 lg:px-12 py-2 lg:py-4 text-gray-600 text-xs lg:text-base font-light tracking-[0.15em] lg:tracking-[0.2em] transition-all duration-300 focus:outline-none uppercase ${
-                  isProcessing
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:border-black hover:text-black cursor-pointer"
-                }`}
-              >
-                Skip
-              </button>
-            </div>
-          )}
+          {/* Minimal Skip Button */}
+          <div className="flex justify-center mt-4 lg:mt-6">
+            <button
+              onClick={() => !isProcessing && onSkip()}
+              disabled={isProcessing}
+              className={`border border-gray-400 px-6 lg:px-12 py-2 lg:py-4 text-gray-600 text-xs lg:text-base font-light tracking-[0.15em] lg:tracking-[0.2em] transition-all duration-300 focus:outline-none uppercase ${
+                isProcessing
+                  ? "opacity-50 cursor-not-allowed"
+                  : "hover:border-black hover:text-black cursor-pointer"
+              }`}
+            >
+              Skip
+            </button>
+          </div>
         </div>
       </div>
     </div>

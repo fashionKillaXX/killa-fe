@@ -129,6 +129,46 @@ export async function fetchProducts(): Promise<Product[]> {
   }
 }
 
+// Fetch next batch of products from API
+export async function fetchNextBatch(excludeIds: string[] = []): Promise<Product[]> {
+  try {
+    console.log('Fetching next batch of products, excluding:', excludeIds.length, 'products');
+    const headers = getAuthHeaders();
+    
+    // Create query parameters to exclude already seen products
+    const params = new URLSearchParams();
+    if (excludeIds.length > 0) {
+      params.append('exclude_ids', excludeIds.join(','));
+    }
+    
+    const url = `${BACKEND_URL}/fashion/api/products/batch/?${params.toString()}`;
+    console.log('Fetching from:', url);
+    
+    const response = await fetch(url, { headers });
+    
+    console.log('Next batch response status:', response.status);
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Next batch fetch error:', errorText);
+      throw new Error(`Failed to fetch next batch: ${response.status} ${errorText}`);
+    }
+    
+    const data = await response.json();
+    console.log('Next batch API response:', data);
+    
+    // Handle backend response format: { success: true, products: [...] }
+    const products = data.products || data;
+    console.log('Next batch received:', products.length || 0, 'items');
+    return products;
+  } catch (error) {
+    console.error("Error fetching next batch:", error);
+    // Return empty array if no more products available
+    console.log('No more products available or error occurred');
+    return [];
+  }
+}
+
 // Post feedback to API
 export async function postFeedback(feedback: FeedbackData): Promise<boolean> {
   console.log("Posting feedback:", feedback);
