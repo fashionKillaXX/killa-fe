@@ -33,7 +33,6 @@ function SurveyApp() {
         <div className="max-w-md mx-auto text-center p-8">
           <div className="w-12 h-12 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <h1 className="text-2xl font-light text-black mb-4 tracking-wide">
-            {isLoadingNextBatch ? "Loading Next Batch" : "Loading Products"}
           </h1>
           <p className="text-gray-600 mb-4">
             {isLoadingNextBatch ? "Fetching more products for you..." : "Preparing your fashion survey..."}

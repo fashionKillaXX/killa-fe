@@ -142,7 +142,7 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       (p) => !completedProductIds.includes(p.id)
     );
 
-    if (availableProducts.length > 0) {
+    if (availableProducts.length > 0 && currentProductIndex < products.length-1) {
       // Find index of next available product
       const nextIndex = getNextAvailableProduct();
       setCurrentProductIndex(nextIndex+1);
@@ -153,6 +153,7 @@ export function SurveyProvider({ children }: { children: React.ReactNode }) {
       // All products completed, try to load next batch
       console.log("All products completed! Attempting to load next batch...");
       const batchLoaded = await loadNextBatch();
+      
       
       // if (!batchLoaded) {
       //   // No more products available, start over with first batch
