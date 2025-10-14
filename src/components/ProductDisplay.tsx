@@ -2,7 +2,7 @@
 
 import { Product } from "@/lib/api";
 import { useSurvey } from "@/contexts/SurveyContext";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 
 interface ProductDisplayProps {
@@ -41,10 +41,13 @@ export default function ProductDisplay({
   }, [product.id]);
 
   // Get available images - use image_list if available, otherwise fallback to image_url
-  const availableImages =
+  // Memoized to prevent unnecessary re-renders
+  const availableImages = useMemo(() => 
     product.image_list && product.image_list.length > 0
       ? product.image_list
-      : [product.image_url];
+      : [product.image_url],
+    [product.image_list, product.image_url]
+  );
 
   const nextImage = () => {
     if (availableImages.length > 1) {
@@ -65,6 +68,11 @@ export default function ProductDisplay({
   };
 
   const handleImageLoad = () => {
+    setIsImageLoading(false);
+  };
+
+  const handleImageError = () => {
+    console.error('Image failed to load:', availableImages[currentImageIndex]);
     setIsImageLoading(false);
   };
 
@@ -120,7 +128,7 @@ export default function ProductDisplay({
     setDragOffset(e.clientX - touchStart);
   };
 
-  const handleMouseUp = (e: React.MouseEvent) => {
+  const handleMouseUp = () => {
     if (!isDragging || !touchStart || touchEnd === 0) {
       setIsDragging(false);
       setDragOffset(0);
@@ -146,12 +154,41 @@ export default function ProductDisplay({
   // Reset loading state when product or image changes
   useEffect(() => {
     setIsImageLoading(true);
+    
+    // Fallback timeout to ensure loader doesn't stay visible forever
+    // This handles cases where onLoad event doesn't fire (e.g., cached images)
+    const timeoutId = setTimeout(() => {
+      setIsImageLoading(false);
+    }, 2500); // 2.5 second fallback
+    
+    return () => clearTimeout(timeoutId);
   }, [product.id, currentImageIndex]);
 
   // Reset image index when product changes
   useEffect(() => {
     setCurrentImageIndex(0);
   }, [product.id]);
+
+  // Preload adjacent images for smoother transitions
+  useEffect(() => {
+    if (availableImages.length <= 1) return;
+
+    const preloadImage = (src: string) => {
+      const img = new window.Image();
+      img.src = src;
+    };
+
+    // Preload next and previous images
+    const nextIndex = (currentImageIndex + 1) % availableImages.length;
+    const prevIndex = (currentImageIndex - 1 + availableImages.length) % availableImages.length;
+
+    if (availableImages[nextIndex]) {
+      preloadImage(availableImages[nextIndex]);
+    }
+    if (availableImages[prevIndex] && prevIndex !== nextIndex) {
+      preloadImage(availableImages[prevIndex]);
+    }
+  }, [currentImageIndex, availableImages]);
 
   return (
     <div className="w-full min-h-screen bg-white flex flex-col justify-center font-serif py-4 lg:py-8">
@@ -218,11 +255,13 @@ export default function ProductDisplay({
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                   onLoad={handleImageLoad}
                   onError={(e) => {
+                    handleImageError();
                     const target = e.target as HTMLImageElement;
                     target.style.display = "none";
                     target.nextElementSibling?.classList.remove("hidden");
                   }}
                   draggable={false}
+                  unoptimized={false}
                 />
               </div>
 
@@ -299,7 +338,7 @@ export default function ProductDisplay({
         {availableImages.length > 1 && !isImageLoading && (
           <div className="flex justify-center gap-2 mb-4 px-4">
             {/* Show first 5 thumbnails */}
-            {availableImages.slice(0, Math.min(5, availableImages.length)).map((imageUrl, index) => (
+            {availableImages.slice(0, Math.min(5, availableImages.length)).map((imageUrl: string, index: number) => (
               <button
                 key={index}
                 onClick={() => goToImage(index)}
