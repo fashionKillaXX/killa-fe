@@ -36,7 +36,6 @@ export default function GoogleCallbackPage() {
       } catch (err) {
         console.error("OAuth callback error:", err);
         setError(err instanceof Error ? err.message : "Authentication failed");
-        setHasProcessed(false);
       }
     };
 

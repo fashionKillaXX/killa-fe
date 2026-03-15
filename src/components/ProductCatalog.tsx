@@ -13,7 +13,7 @@ import { searchAI } from "@/services/search";
 interface Product {
   id: string;
   name: string;
-  price: number;
+  price: number | null;
   image: string;
   bookmarked: boolean;
   savedCollectionIds: string[];  // Collection IDs this product is saved in
@@ -52,92 +52,101 @@ export function ProductCatalog({
   const searchParams = useSearchParams();
 
   // Determine the active filter: prefer prop, fall back to URL search params
-  const filterType = searchParams.get("type") as ActiveFilter["type"] | null;
-  const filterValue = searchParams.get("value");
-  const filterLabel = searchParams.get("label");
-  const urlFilter: ActiveFilter | null = filterType && filterValue
-    ? { type: filterType, value: filterValue, label: filterLabel || undefined }
-    : null;
+  // URLs use direct param names: ?vibe=trendy, ?scene=casual, ?collection=X, ?userCollection=X, ?search=X
+  const urlFilter: ActiveFilter | null = (() => {
+    const label = searchParams.get("label") || undefined;
+    if (searchParams.get("scene")) return { type: "scene" as const, value: searchParams.get("scene")!, label };
+    if (searchParams.get("vibe")) return { type: "vibe" as const, value: searchParams.get("vibe")!, label };
+    if (searchParams.get("collection")) return { type: "collection" as const, value: searchParams.get("collection")!, label };
+    if (searchParams.get("userCollection")) return { type: "userCollection" as const, value: searchParams.get("userCollection")!, label };
+    if (searchParams.get("search")) return { type: "search" as const, value: searchParams.get("search")!, label };
+    return null;
+  })();
   const activeFilter = activeFilterProp !== undefined ? activeFilterProp : urlFilter;
 
   const [saveSheetOpen, setSaveSheetOpen] = useState(false);
   const [productToSave, setProductToSave] = useState<Product | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const PAGE_SIZE = 20;
+
+  const buildFilterParams = (filterOverride?: ActiveFilter | null): Record<string, string> => {
+    const f = filterOverride ?? activeFilter;
+    if (!f) return {};
+    const map: Record<string, string> = {};
+    if (f.type === 'scene') map.scene = f.value;
+    else if (f.type === 'vibe') map.vibe = f.value;
+    else if (f.type === 'collection') map.collection = f.value;
+    else if (f.type === 'userCollection') map.userCollectionId = f.value;
+    return map;
+  };
+
+  const mapProducts = (apiProducts: any[]): Product[] =>
+    apiProducts.map(p => ({
+      id: p.productId,
+      name: p.name,
+      price: p.price || null,
+      image: p.productImageUrl,
+      bookmarked: p.isSaved,
+      savedCollectionIds: p.savedCollectionIds || [],
+      brand: p.brand?.name,
+      description: p.description || p.name,
+      images: p.imageList,
+    }));
 
   useEffect(() => {
     const loadProducts = async () => {
-      console.log('[ProductCatalog] Loading products with filter:', activeFilter);
       setLoading(true);
+      setOffset(0);
       try {
-        let response;
-
-        if (activeFilter) {
-          // Use unified API with appropriate filter
-          if (activeFilter.type === 'scene') {
-            console.log('[ProductCatalog] Fetching scene products:', activeFilter.value);
-            response = await fetchProductsUnified({ scene: activeFilter.value, limit: 20 });
-          } else if (activeFilter.type === 'vibe') {
-            console.log('[ProductCatalog] Fetching vibe products:', activeFilter.value);
-            response = await fetchProductsUnified({ vibe: activeFilter.value, limit: 20 });
-          } else if (activeFilter.type === 'collection') {
-            console.log('[ProductCatalog] Fetching collection products:', activeFilter.value);
-            response = await fetchProductsUnified({ collection: activeFilter.value, limit: 20 });
-          } else if (activeFilter.type === 'userCollection') {
-            // Fetch products from user's saved collection
-            console.log('[ProductCatalog] Fetching user collection products:', activeFilter.value);
-            response = await fetchProductsUnified({ userCollectionId: activeFilter.value, limit: 20 });
-          } else if (activeFilter.type === 'search') {
-            // Fetch products using AI search
-            console.log('[ProductCatalog] Performing AI search:', activeFilter.value);
-            const searchResponse = await searchAI(activeFilter.value);
-
-            if (searchResponse.success) {
-              // Map search results to component Product format
-              const searchProducts: Product[] = searchResponse.results.map(p => ({
-                id: p.product_id,
-                name: p.name,
-                price: 4000, // Default price as search API might not return it yet
-                image: p.product_image_url,
-                bookmarked: false,
-                savedCollectionIds: [],
-                brand: undefined,
-                description: p.name,
-                images: [p.product_image_url]
-              }));
-              setProducts(searchProducts);
-              setLoading(false);
-              return; // Exit early as we handled the response differently
-            } else {
-              response = { success: false, products: [], total: 0, hasMore: false, limit: 0, offset: 0 };
-            }
+        if (activeFilter?.type === 'search') {
+          const searchResponse = await searchAI(activeFilter.value);
+          if (searchResponse.success) {
+            const searchProducts: Product[] = searchResponse.results.map(p => ({
+              id: p.product_id,
+              name: p.name,
+              price: null,
+              image: p.product_image_url,
+              bookmarked: false,
+              savedCollectionIds: [],
+              brand: undefined,
+              description: p.name,
+              images: [p.product_image_url]
+            }));
+            setProducts(searchProducts);
+            setTotal(searchProducts.length);
+            setHasMore(false);
+          } else {
+            setProducts([]);
+            setTotal(0);
+            setHasMore(false);
           }
+          setLoading(false);
+          return;
         }
 
-        if (response && response.success) {
-          console.log('[ProductCatalog] API response:', response);
-          // Map unified API products to frontend format
-          const mappedProducts: Product[] = response.products.map(p => ({
-            id: p.productId,
-            name: p.name,
-            price: p.price || 4000,
-            image: p.productImageUrl,
-            bookmarked: p.isSaved,
-            savedCollectionIds: p.savedCollectionIds || [],
-            brand: p.brand?.name,
-            description: p.description || p.name,
-            images: p.imageList
-          }));
+        const params = buildFilterParams();
+        const response = await fetchProductsUnified({ ...params, limit: PAGE_SIZE, offset: 0 } as any);
 
-          console.log('[ProductCatalog] Mapped products:', mappedProducts.length);
-          setProducts(mappedProducts);
+        if (response && response.success) {
+          setProducts(mapProducts(response.products));
+          setTotal(response.total);
+          setHasMore(response.hasMore);
+          setOffset(PAGE_SIZE);
         } else {
-          console.log('[ProductCatalog] No response or unsuccessful');
           setProducts([]);
+          setTotal(0);
+          setHasMore(false);
         }
       } catch (error) {
         console.error('Error loading products:', error);
         setProducts([]);
+        setTotal(0);
+        setHasMore(false);
       } finally {
         setLoading(false);
       }
@@ -146,6 +155,24 @@ export function ProductCatalog({
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeFilter?.type, activeFilter?.value, activeFilter?.label]);
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const params = buildFilterParams();
+      const response = await fetchProductsUnified({ ...params, limit: PAGE_SIZE, offset } as any);
+      if (response && response.success) {
+        setProducts(prev => [...prev, ...mapProducts(response.products)]);
+        setHasMore(response.hasMore);
+        setOffset(prev => prev + PAGE_SIZE);
+      }
+    } catch (error) {
+      console.error('Error loading more products:', error);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const handleBookmarkClick = (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -205,6 +232,11 @@ export function ProductCatalog({
           <h1 className="uppercase tracking-wide text-xl">{getPageTitle()}</h1>
         </div>
 
+        {/* Product count */}
+        {!loading && total > 0 && (
+          <p className="text-xs text-gray-400 mb-4">{products.length} of {total} products</p>
+        )}
+
         {/* Products Grid */}
         {products.length === 0 ? (
           <div className="text-center py-16">
@@ -232,7 +264,9 @@ export function ProductCatalog({
                     <p className="text-xs text-gray-700 truncate">
                       {product.name}
                     </p>
-                    <p className="text-sm mt-0.5">{"\u20B9"} {product.price.toFixed(2)}</p>
+                    {product.price != null && (
+                      <p className="text-sm mt-0.5">{"\u20B9"} {product.price.toFixed(2)}</p>
+                    )}
                   </div>
                   <button
                     onClick={(e) => handleBookmarkClick(product, e)}
@@ -243,6 +277,19 @@ export function ProductCatalog({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Load More */}
+        {hasMore && (
+          <div className="flex justify-center py-8">
+            <button
+              onClick={loadMore}
+              disabled={loadingMore}
+              className="border border-black px-8 py-3 text-black text-sm tracking-wide hover:bg-black hover:text-white transition-all duration-300 uppercase disabled:opacity-50"
+            >
+              {loadingMore ? 'Loading...' : 'Load More'}
+            </button>
           </div>
         )}
       </div>
