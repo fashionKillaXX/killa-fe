@@ -8,17 +8,29 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  output: 'export',
-  trailingSlash: true,
   images: {
-    unoptimized: true
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
+      },
+      {
+        protocol: "https",
+        hostname: "**.supabase.co",
+      },
+      {
+        protocol: "https",
+        hostname: "api.fitcurry.shop",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.shopify.com",
+      },
+    ],
   },
-  // Experimental features can be enabled here when needed
-  // experimental: {
-  //   // Feature flags go here
-  // },
   env: {
-    NEXT_PUBLIC_BACKEND_URL: process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000',
+    NEXT_PUBLIC_BACKEND_URL:
+      process.env.NEXT_PUBLIC_BACKEND_URL || "https://api.fitcurry.shop",
   },
 };
 

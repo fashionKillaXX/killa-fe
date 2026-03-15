@@ -1,91 +1,144 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getGoogleAuthUrl, getStoredUser, clearAuthTokens, AuthUser } from '@/lib/auth';
+import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import api from "@/services/api";
+import { invalidatePreferencesCache } from "@/services/preferences";
+import { invalidateCollectionCache, invalidateFeaturedCache } from "@/services/products";
 
 interface User {
-  id: string;
+  id: number;
   name: string;
   email: string;
-  picture?: string;
-  accessToken?: string;
+  profile_picture?: string;
+  is_new_user?: boolean;
 }
 
 interface AuthContextType {
   user: User | null;
-  isLoading: boolean;
+  token: string | null;
   isAuthenticated: boolean;
-  signInWithGoogle: () => Promise<void>;
-  signOut: () => void;
-  refreshAuth: () => void;
+  isLoading: boolean;
+  login: (email: string, name?: string) => Promise<void>;
+  loginWithGoogle: () => Promise<void>;
+  handleGoogleCallback: (code: string) => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function AuthProvider({ children }: { children: React.ReactNode }) {
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isInitializing, setIsInitializing] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check for stored user on component mount
+  // Load user and token from localStorage on mount
   useEffect(() => {
-    const storedUser = getStoredUser();
-    if (storedUser) {
-      setUser(storedUser);
+    const savedToken = localStorage.getItem("auth_token");
+    const savedUser = localStorage.getItem("auth_user");
+
+    if (savedToken && savedUser) {
+      setToken(savedToken);
+      setUser(JSON.parse(savedUser));
     }
-    setIsInitializing(false);
+
+    setIsLoading(false);
   }, []);
 
-  // Real Google Sign-In using custom OAuth flow
-  const signInWithGoogle = async (): Promise<void> => {
-    setIsLoading(true);
-    
+  const login = async (email: string, name?: string) => {
     try {
-      console.log('Starting Google OAuth flow...');
-      // Get the OAuth URL from backend
-      const authUrl = await getGoogleAuthUrl();
-      console.log('Received auth URL:', authUrl);
-      
-      // Redirect to Google OAuth
-      window.location.href = authUrl;
-    } catch (error) {
-      console.error('Google Sign-In failed:', error);
-      alert(`Authentication failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      setIsLoading(false);
+      const response = await api.post('/auth/email/', {
+        email,
+        name: name || email.split('@')[0]
+      });
+
+      if (response.data.success) {
+        const { access_token, user: userData } = response.data;
+
+        setToken(access_token);
+        setUser(userData);
+
+        // Save to localStorage
+        localStorage.setItem("auth_token", access_token);
+        localStorage.setItem("auth_user", JSON.stringify(userData));
+      } else {
+        throw new Error(response.data.error || 'Login failed');
+      }
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to authenticate');
     }
   };
 
-  const signOut = (): void => {
-    clearAuthTokens();
+  const loginWithGoogle = async () => {
+    try {
+      const response = await api.get('/auth/google/authorize/');
+      if (response.data.success) {
+        window.location.href = response.data.authorization_url;
+      } else {
+        throw new Error(response.data.error || 'Failed to get authorization URL');
+      }
+    } catch (error: any) {
+      console.error('Google login error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to initiate Google login');
+    }
+  };
+
+  const handleGoogleCallback = async (code: string) => {
+    try {
+      const response = await api.post('/auth/google/callback/', { code });
+
+      if (response.data.success) {
+        const { access_token, user: userData } = response.data;
+
+        setToken(access_token);
+        setUser(userData);
+
+        // Save to localStorage
+        localStorage.setItem("auth_token", access_token);
+        localStorage.setItem("auth_user", JSON.stringify(userData));
+      } else {
+        throw new Error(response.data.error || 'Google login failed');
+      }
+    } catch (error: any) {
+      console.error('Google callback error:', error);
+      throw new Error(error.response?.data?.error || 'Failed to complete Google login');
+    }
+  };
+
+  const logout = () => {
     setUser(null);
-  };
+    setToken(null);
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("auth_user");
 
-  const refreshAuth = (): void => {
-    const storedUser = getStoredUser();
-    setUser(storedUser);
-  };
-
-  const contextValue: AuthContextType = {
-    user,
-    isLoading: isLoading || isInitializing,
-    isAuthenticated: !!user,
-    signInWithGoogle,
-    signOut,
-    refreshAuth,
+    // Clear all user-specific caches
+    invalidatePreferencesCache();
+    invalidateCollectionCache();
+    invalidateFeaturedCache();
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        isAuthenticated: !!token && !!user,
+        isLoading,
+        login,
+        loginWithGoogle,
+        handleGoogleCallback,
+        logout
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
 }
 
-// Custom hook for using auth context
-export function useAuth(): AuthContextType {
+export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 }
