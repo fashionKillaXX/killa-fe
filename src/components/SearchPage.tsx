@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, Clock } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
@@ -8,11 +8,12 @@ import { DesktopNav } from "@/components/DesktopNav";
 import { TextInput } from "@/components/shared/TextInput";
 import { ProductCatalog } from "@/components/ProductCatalog";
 import { SubpageHeader } from "@/components/SubpageHeader";
-import { fetchSearchHistory, addSearchHistory, deleteSearchHistory } from "@/services/search";
+import { SearchFilters, buildSearchFiltersFromState } from "@/components/SearchFilters";
+import { fetchSearchHistory, addSearchHistory, deleteSearchHistory, type SearchFilters as SearchFiltersType } from "@/services/search";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
- * SearchPage with search input, recent search history, and inline search results.
+ * SearchPage with search input, filter chips, recent search history, and inline search results.
  * Uses ProductCatalog in embedded mode (hideHeader) to display search results.
  */
 export function SearchPage() {
@@ -23,26 +24,45 @@ export function SearchPage() {
   const [showResults, setShowResults] = useState(false);
   const [currentQuery, setCurrentQuery] = useState("");
 
+  // Filter and sort state — persists across query changes
+  const [activeFilters, setActiveFilters] = useState<Record<string, string[]>>({});
+  const [activeSort, setActiveSort] = useState("relevance");
+
+  // Computed search filters object for the API
+  const [searchFilters, setSearchFilters] = useState<SearchFiltersType>({});
+
   useEffect(() => {
     loadHistory();
     const savedState = sessionStorage.getItem('searchState');
     if (savedState) {
-      const { query, showResults: savedShowResults, currentQuery: savedCurrentQuery } = JSON.parse(savedState);
-      setSearchQuery(query);
-      setShowResults(savedShowResults);
-      setCurrentQuery(savedCurrentQuery);
+      const parsed = JSON.parse(savedState);
+      setSearchQuery(parsed.query || "");
+      setShowResults(parsed.showResults || false);
+      setCurrentQuery(parsed.currentQuery || "");
+      // Restore persisted filters
+      if (parsed.activeFilters) setActiveFilters(parsed.activeFilters);
+      if (parsed.activeSort) setActiveSort(parsed.activeSort);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Persist state to session storage
   useEffect(() => {
-    if (searchQuery || showResults) {
+    if (searchQuery || showResults || Object.keys(activeFilters).length > 0) {
       sessionStorage.setItem('searchState', JSON.stringify({
         query: searchQuery,
         showResults,
-        currentQuery
+        currentQuery,
+        activeFilters,
+        activeSort,
       }));
     }
-  }, [searchQuery, showResults, currentQuery]);
+  }, [searchQuery, showResults, currentQuery, activeFilters, activeSort]);
+
+  // Rebuild searchFilters whenever activeFilters or activeSort changes
+  useEffect(() => {
+    setSearchFilters(buildSearchFiltersFromState(activeFilters, activeSort));
+  }, [activeFilters, activeSort]);
 
   const loadHistory = async () => {
     if (!isAuthenticated) {
@@ -90,12 +110,22 @@ export function SearchPage() {
       sessionStorage.setItem('searchState', JSON.stringify({
         query: "",
         showResults: false,
-        currentQuery: ""
+        currentQuery: "",
+        activeFilters,
+        activeSort,
       }));
     } else {
       router.push("/");
     }
   };
+
+  const handleFiltersChange = useCallback((filters: Record<string, string[]>) => {
+    setActiveFilters(filters);
+  }, []);
+
+  const handleSortChange = useCallback((sort: string) => {
+    setActiveSort(sort);
+  }, []);
 
   return (
     <div className="min-h-screen bg-white text-black flex flex-col max-w-md md:max-w-7xl mx-auto">
@@ -118,7 +148,7 @@ export function SearchPage() {
 
         {/* Search Section */}
         <div className="px-6 pt-6 md:max-w-2xl md:mx-auto lg:max-w-3xl">
-          <div className="relative mb-8">
+          <div className="relative mb-4">
             <div className="relative">
               <TextInput
                 value={searchQuery}
@@ -138,6 +168,16 @@ export function SearchPage() {
               )}
             </div>
           </div>
+
+          {/* Filter chips — always visible as a discovery mechanism */}
+          <div className="mb-6">
+            <SearchFilters
+              activeFilters={activeFilters}
+              activeSort={activeSort}
+              onFiltersChange={handleFiltersChange}
+              onSortChange={handleSortChange}
+            />
+          </div>
         </div>
 
         {/* Search Results or Recent Searches */}
@@ -146,6 +186,7 @@ export function SearchPage() {
             <ProductCatalog
               activeFilter={{ type: 'search', value: currentQuery, label: currentQuery }}
               hideHeader={true}
+              searchFilters={searchFilters}
             />
           </div>
         ) : (

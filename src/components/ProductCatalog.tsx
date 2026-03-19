@@ -9,7 +9,7 @@ import { BookmarkIcon } from "@/components/shared/BookmarkIcon";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopNav } from "@/components/DesktopNav";
 import { fetchProductsUnified, type Product as UnifiedProduct } from "@/services/products";
-import { searchAI } from "@/services/search";
+import { searchAI, type SearchFilters } from "@/services/search";
 
 interface Product {
   id: string;
@@ -37,6 +37,8 @@ interface ProductCatalogProps {
   activeFilter?: ActiveFilter | null;
   /** Hide the back-arrow header (useful when embedded in another page). */
   hideHeader?: boolean;
+  /** Optional search filters (category, color, vibe, etc.) to pass through to the search API. */
+  searchFilters?: SearchFilters;
 }
 
 /**
@@ -48,6 +50,7 @@ interface ProductCatalogProps {
 export function ProductCatalog({
   activeFilter: activeFilterProp,
   hideHeader = false,
+  searchFilters,
 }: ProductCatalogProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -105,7 +108,7 @@ export function ProductCatalog({
       setOffset(0);
       try {
         if (activeFilter?.type === 'search') {
-          const searchResponse = await searchAI(activeFilter.value, PAGE_SIZE, 0);
+          const searchResponse = await searchAI(activeFilter.value, PAGE_SIZE, 0, searchFilters);
           if (searchResponse.success) {
             const searchProducts: Product[] = searchResponse.results.map(p => ({
               id: p.product_id,
@@ -156,7 +159,7 @@ export function ProductCatalog({
 
     loadProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFilter?.type, activeFilter?.value, activeFilter?.label]);
+  }, [activeFilter?.type, activeFilter?.value, activeFilter?.label, searchFilters]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;
@@ -164,7 +167,7 @@ export function ProductCatalog({
     try {
       if (activeFilter?.type === 'search') {
         // Paginate AI search results
-        const searchResponse = await searchAI(activeFilter.value, PAGE_SIZE, offset);
+        const searchResponse = await searchAI(activeFilter.value, PAGE_SIZE, offset, searchFilters);
         if (searchResponse.success && searchResponse.results.length > 0) {
           const moreProducts: Product[] = searchResponse.results.map(p => ({
             id: p.product_id,

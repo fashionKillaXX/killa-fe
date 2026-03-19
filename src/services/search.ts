@@ -26,16 +26,60 @@ export interface SearchHistoryResponse {
     searches: string[];
 }
 
+/** Filter parameters accepted by the search API */
+export interface SearchFilters {
+    category?: string;
+    subcategory?: string;
+    color?: string;
+    vibe?: string;
+    occasion?: string;
+    price_min?: number;
+    price_max?: number;
+    brand_id?: string;
+    sort?: string;
+}
+
+/** A single filter option returned by the filters endpoint */
+export interface FilterOption {
+    value: string;
+    label: string;
+    count: number;
+}
+
+/** Response shape from GET /fashion/api/search/filters/ */
+export interface SearchFiltersResponse {
+    success: boolean;
+    categories: FilterOption[];
+    subcategories: FilterOption[];
+    colors: FilterOption[];
+    vibes: FilterOption[];
+    occasions: FilterOption[];
+}
+
 // In-memory cache for search results (Map<query, response>)
 const searchCache = new Map<string, SearchResponse>();
 const CACHE_LIMIT = 20;
 
 /**
- * Perform AI-powered search with pagination support
+ * Build a stable cache key from query, pagination, and filter params.
  */
-export const searchAI = async (query: string, limit: number = 20, offset: number = 0): Promise<SearchResponse> => {
+const buildCacheKey = (query: string, offset: number, limit: number, filters?: SearchFilters): string => {
+    const filterStr = filters ? JSON.stringify(filters, Object.keys(filters).sort()) : '';
+    return `${query}:${offset}:${limit}:${filterStr}`;
+};
+
+/**
+ * Perform AI-powered search with pagination and filter support.
+ * Sends a POST request with query, limit, offset, and optional filters in the body.
+ */
+export const searchAI = async (
+    query: string,
+    limit: number = 20,
+    offset: number = 0,
+    filters?: SearchFilters
+): Promise<SearchResponse> => {
     try {
-        const cacheKey = `${query}:${offset}:${limit}`;
+        const cacheKey = buildCacheKey(query, offset, limit, filters);
 
         // Check cache first
         if (searchCache.has(cacheKey)) {
@@ -43,7 +87,23 @@ export const searchAI = async (query: string, limit: number = 20, offset: number
             return searchCache.get(cacheKey)!;
         }
 
-        const response = await api.get(`/api/search-ai/?query=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
+        // Build POST body with query, pagination, and filters
+        const body: Record<string, unknown> = {
+            query,
+            limit,
+            offset,
+        };
+
+        // Merge filter params into the body (only non-empty values)
+        if (filters) {
+            Object.entries(filters).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    body[key] = value;
+                }
+            });
+        }
+
+        const response = await api.post('/api/search-ai/', body);
 
         // Update cache
         if (response.data.success) {
@@ -73,6 +133,38 @@ export const searchAI = async (query: string, limit: number = 20, offset: number
 
 export const clearSearchCache = () => {
     searchCache.clear();
+};
+
+// Cache for filter options
+let filtersCache: { data: SearchFiltersResponse; timestamp: number } | null = null;
+const FILTERS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Fetch available filter values with counts from the backend.
+ * Results are cached for 5 minutes.
+ */
+export const fetchSearchFilters = async (): Promise<SearchFiltersResponse> => {
+    try {
+        // Check cache
+        if (filtersCache && (Date.now() - filtersCache.timestamp < FILTERS_CACHE_DURATION)) {
+            return filtersCache.data;
+        }
+
+        const response = await api.get('/api/search/filters/');
+
+        if (response.data.success) {
+            filtersCache = {
+                data: response.data,
+                timestamp: Date.now()
+            };
+            return response.data;
+        }
+
+        return { success: false, categories: [], subcategories: [], colors: [], vibes: [], occasions: [] };
+    } catch (error) {
+        console.error('Error fetching search filters:', error);
+        return { success: false, categories: [], subcategories: [], colors: [], vibes: [], occasions: [] };
+    }
 };
 
 /**
