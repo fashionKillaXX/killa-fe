@@ -25,7 +25,7 @@ export function BottomNav() {
   const activeTab = getActiveTab();
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white max-w-md mx-auto shadow-[0px_-2px_4px_0px_rgba(14,31,53,0.12)]">
+    <div className="fixed bottom-0 left-0 right-0 bg-white max-w-md mx-auto shadow-[0px_-2px_4px_0px_rgba(14,31,53,0.12)] md:hidden">
       <GradientDivider />
       <div className="flex items-center justify-around px-4 py-4">
         <button

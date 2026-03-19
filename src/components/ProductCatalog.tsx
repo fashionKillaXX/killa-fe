@@ -7,6 +7,7 @@ import { SubpageHeader } from "@/components/SubpageHeader";
 import { SaveToCollectionSheet } from "@/components/SaveToCollectionSheet";
 import { BookmarkIcon } from "@/components/shared/BookmarkIcon";
 import { BottomNav } from "@/components/BottomNav";
+import { DesktopNav } from "@/components/DesktopNav";
 import { fetchProductsUnified, type Product as UnifiedProduct } from "@/services/products";
 import { searchAI } from "@/services/search";
 
@@ -104,7 +105,7 @@ export function ProductCatalog({
       setOffset(0);
       try {
         if (activeFilter?.type === 'search') {
-          const searchResponse = await searchAI(activeFilter.value);
+          const searchResponse = await searchAI(activeFilter.value, PAGE_SIZE, 0);
           if (searchResponse.success) {
             const searchProducts: Product[] = searchResponse.results.map(p => ({
               id: p.product_id,
@@ -118,8 +119,9 @@ export function ProductCatalog({
               images: [p.product_image_url]
             }));
             setProducts(searchProducts);
-            setTotal(searchProducts.length);
-            setHasMore(false);
+            setTotal(searchResponse.total || searchProducts.length);
+            setHasMore(searchResponse.hasMore ?? false);
+            setOffset(PAGE_SIZE);
           } else {
             setProducts([]);
             setTotal(0);
@@ -160,12 +162,35 @@ export function ProductCatalog({
     if (loadingMore || !hasMore) return;
     setLoadingMore(true);
     try {
-      const params = buildFilterParams();
-      const response = await fetchProductsUnified({ ...params, limit: PAGE_SIZE, offset } as any);
-      if (response && response.success) {
-        setProducts(prev => [...prev, ...mapProducts(response.products)]);
-        setHasMore(response.hasMore);
-        setOffset(prev => prev + PAGE_SIZE);
+      if (activeFilter?.type === 'search') {
+        // Paginate AI search results
+        const searchResponse = await searchAI(activeFilter.value, PAGE_SIZE, offset);
+        if (searchResponse.success && searchResponse.results.length > 0) {
+          const moreProducts: Product[] = searchResponse.results.map(p => ({
+            id: p.product_id,
+            name: p.name,
+            price: null,
+            image: p.product_image_url,
+            bookmarked: false,
+            savedCollectionIds: [],
+            brand: undefined,
+            description: p.name,
+            images: [p.product_image_url]
+          }));
+          setProducts(prev => [...prev, ...moreProducts]);
+          setHasMore(searchResponse.hasMore ?? false);
+          setOffset(prev => prev + PAGE_SIZE);
+        } else {
+          setHasMore(false);
+        }
+      } else {
+        const params = buildFilterParams();
+        const response = await fetchProductsUnified({ ...params, limit: PAGE_SIZE, offset } as any);
+        if (response && response.success) {
+          setProducts(prev => [...prev, ...mapProducts(response.products)]);
+          setHasMore(response.hasMore);
+          setOffset(prev => prev + PAGE_SIZE);
+        }
       }
     } catch (error) {
       console.error('Error loading more products:', error);
@@ -203,10 +228,9 @@ export function ProductCatalog({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white text-black flex flex-col max-w-md mx-auto">
-        {!hideHeader && (
-          <SubpageHeader onBackClick={handleBackClick} />
-        )}
+      <div className="min-h-screen bg-white text-black flex flex-col max-w-md md:max-w-7xl mx-auto">
+        {!hideHeader && <DesktopNav />}
+        {!hideHeader && <SubpageHeader onBackClick={handleBackClick} />}
         <div className="flex-1 flex items-center justify-center">
           <p className="text-gray-500">Loading products...</p>
         </div>
@@ -216,8 +240,10 @@ export function ProductCatalog({
   }
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col max-w-md mx-auto">
-      {/* Header */}
+    <div className="min-h-screen bg-white text-black flex flex-col max-w-md md:max-w-7xl mx-auto">
+      {/* Desktop nav */}
+      {!hideHeader && <DesktopNav />}
+      {/* Mobile header */}
       {!hideHeader && (
         <SubpageHeader
           onBackClick={handleBackClick}
@@ -226,15 +252,15 @@ export function ProductCatalog({
       )}
 
       {/* Content */}
-      <div className="flex-1 px-6 pb-24 overflow-y-auto">
+      <div className="flex-1 px-4 sm:px-6 md:px-8 lg:px-12 pb-24 md:pb-12 overflow-y-auto">
         {/* Page Title */}
-        <div className="pb-6">
+        <div className="pb-4 md:pb-6 md:pt-4">
           <h1 className="uppercase tracking-wide text-xl">{getPageTitle()}</h1>
         </div>
 
         {/* Product count */}
         {!loading && total > 0 && (
-          <p className="text-xs text-gray-400 mb-4">{products.length} of {total} products</p>
+          <p className="text-xs text-gray-400 mb-4 md:mb-6">{products.length} of {total} products</p>
         )}
 
         {/* Products Grid */}
@@ -243,12 +269,12 @@ export function ProductCatalog({
             <p className="text-gray-600">No products found</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5 lg:gap-6">
             {products.map((product) => (
-              <div key={product.id} className="flex flex-col">
+              <div key={product.id} className="flex flex-col group">
                 {/* Product Image */}
                 <div
-                  className="relative bg-[#E5E5E5] aspect-[3/4] overflow-hidden cursor-pointer active:opacity-90 transition-opacity rounded-[8px] shadow-[0px_1px_3px_0px_rgba(14,31,53,0.08)]"
+                  className="relative bg-[#E5E5E5] aspect-[3/4] overflow-hidden cursor-pointer active:opacity-90 transition-all duration-300 rounded-[8px] shadow-[0px_1px_3px_0px_rgba(14,31,53,0.08)] md:group-hover:shadow-lg md:group-hover:scale-[1.02]"
                   onClick={() => handleProductClick(product.id, product.image)}
                 >
                   <ImageWithFallback
@@ -261,16 +287,17 @@ export function ProductCatalog({
                 {/* Product Info */}
                 <div className="flex items-start justify-between mt-2 gap-2">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs text-gray-700 truncate">
+                    <p className="text-xs md:text-sm text-gray-700 truncate">
                       {product.name}
                     </p>
                     {product.price != null && (
-                      <p className="text-sm mt-0.5">{"\u20B9"} {product.price.toFixed(2)}</p>
+                      <p className="text-sm md:text-base mt-0.5">{"\u20B9"} {product.price.toFixed(2)}</p>
                     )}
                   </div>
                   <button
                     onClick={(e) => handleBookmarkClick(product, e)}
-                    className="p-1 -mr-1 flex-shrink-0"
+                    className="p-1 -mr-1 flex-shrink-0 opacity-0 group-hover:opacity-100 md:transition-opacity duration-200"
+                    style={{ opacity: product.bookmarked ? 1 : undefined }}
                   >
                     <BookmarkIcon isSaved={product.bookmarked} />
                   </button>
@@ -282,11 +309,11 @@ export function ProductCatalog({
 
         {/* Load More */}
         {hasMore && (
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-8 md:py-12">
             <button
               onClick={loadMore}
               disabled={loadingMore}
-              className="border border-black px-8 py-3 text-black text-sm tracking-wide hover:bg-black hover:text-white transition-all duration-300 uppercase disabled:opacity-50"
+              className="border border-black px-8 md:px-12 py-3 text-black text-sm tracking-wide hover:bg-black hover:text-white transition-all duration-300 uppercase disabled:opacity-50 rounded-[4px]"
             >
               {loadingMore ? 'Loading...' : 'Load More'}
             </button>
@@ -294,7 +321,7 @@ export function ProductCatalog({
         )}
       </div>
 
-      {/* Bottom Navigation - only shown when not embedded */}
+      {/* Bottom Navigation */}
       {!hideHeader && <BottomNav />}
 
       {/* Save to Collection Sheet */}

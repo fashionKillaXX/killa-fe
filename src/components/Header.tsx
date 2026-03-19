@@ -4,7 +4,7 @@ import { GradientDivider } from "@/components/GradientDivider";
 
 export function Header() {
   return (
-    <div className="px-6 py-4">
+    <div className="px-6 py-4 md:hidden">
       <div className="flex items-center justify-center">
         <h1 style={{
           fontFamily: "'Cirka', serif",

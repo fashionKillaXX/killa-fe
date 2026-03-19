@@ -6,6 +6,7 @@ import { Settings, ChevronRight, LogIn, LogOut } from "lucide-react";
 import { useOnboarding } from "@/contexts/OnboardingContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { BottomNav } from "@/components/BottomNav";
+import { DesktopNav } from "@/components/DesktopNav";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { SignInSheet } from "@/components/SignInSheet";
 import { toast } from "sonner";
@@ -72,10 +73,11 @@ export function ProfilePage() {
   ];
 
   return (
-    <div className="min-h-screen bg-white text-black max-w-md mx-auto">
+    <div className="min-h-screen bg-white text-black max-w-md md:max-w-3xl mx-auto">
+      <DesktopNav />
       {/* Page Heading */}
       <div className="px-6 pt-12 text-center">
-        <h1 style={{ fontSize: '28px', textAlign: 'left' }}>Chef in question</h1>
+        <h1 style={{ fontSize: '28px', textAlign: 'left' }}>Profile</h1>
       </div>
 
       {/* Profile Summary */}

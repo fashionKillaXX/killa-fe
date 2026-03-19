@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, X, Clock } from "lucide-react";
 import { BottomNav } from "@/components/BottomNav";
+import { DesktopNav } from "@/components/DesktopNav";
 import { TextInput } from "@/components/shared/TextInput";
 import { ProductCatalog } from "@/components/ProductCatalog";
 import { SubpageHeader } from "@/components/SubpageHeader";
@@ -24,8 +25,6 @@ export function SearchPage() {
 
   useEffect(() => {
     loadHistory();
-
-    // Restore state from session storage if available
     const savedState = sessionStorage.getItem('searchState');
     if (savedState) {
       const { query, showResults: savedShowResults, currentQuery: savedCurrentQuery } = JSON.parse(savedState);
@@ -36,7 +35,6 @@ export function SearchPage() {
   }, []);
 
   useEffect(() => {
-    // Save state to session storage whenever it changes
     if (searchQuery || showResults) {
       sessionStorage.setItem('searchState', JSON.stringify({
         query: searchQuery,
@@ -47,7 +45,6 @@ export function SearchPage() {
   }, [searchQuery, showResults, currentQuery]);
 
   const loadHistory = async () => {
-    // Only fetch history if user is authenticated
     if (!isAuthenticated) {
       setRecentSearches([]);
       return;
@@ -56,29 +53,21 @@ export function SearchPage() {
     setRecentSearches(history);
   };
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
+  const handleSearch = (query: string) => setSearchQuery(query);
 
   const handleSearchSubmit = async (query: string) => {
     if (query.trim()) {
       const trimmedQuery = query.trim();
       setCurrentQuery(trimmedQuery);
       setShowResults(true);
-
-      // Add to history only if authenticated
       if (isAuthenticated) {
         await addSearchHistory(trimmedQuery);
-        loadHistory(); // Refresh history
+        loadHistory();
       }
     }
   };
 
-  const clearSearch = () => {
-    setSearchQuery("");
-    // Do NOT close results or clear session storage
-    // User wants to just clear the input to type a new query
-  };
+  const clearSearch = () => setSearchQuery("");
 
   const handleRecentClick = (term: string) => {
     setSearchQuery(term);
@@ -88,18 +77,16 @@ export function SearchPage() {
 
   const removeRecentSearch = async (index: number) => {
     const queryToRemove = recentSearches[index];
-    // Optimistic update
     setRecentSearches(recentSearches.filter((_, i) => i !== index));
     await deleteSearchHistory(queryToRemove);
-    loadHistory(); // Refresh to be sure
+    loadHistory();
   };
 
   const handleHeaderBack = () => {
     if (showResults) {
       setShowResults(false);
-      setSearchQuery(""); // Clear input
-      setCurrentQuery(""); // Clear current query
-      // Update session storage to reflect we are back at input with empty query
+      setSearchQuery("");
+      setCurrentQuery("");
       sessionStorage.setItem('searchState', JSON.stringify({
         query: "",
         showResults: false,
@@ -111,9 +98,12 @@ export function SearchPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col max-w-md mx-auto">
+    <div className="min-h-screen bg-white text-black flex flex-col max-w-md md:max-w-7xl mx-auto">
+      {/* Desktop nav */}
+      <DesktopNav />
+
       {/* Content */}
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto pb-24 md:pb-12">
         {showResults && (
           <SubpageHeader
             onBackClick={handleHeaderBack}
@@ -122,13 +112,12 @@ export function SearchPage() {
         )}
 
         {/* Page Heading */}
-        <div className="px-6 pt-12">
-          <h1 style={{ fontSize: '28px' }}>Get cooking</h1>
+        <div className="px-6 pt-12 md:pt-8 md:max-w-2xl md:mx-auto lg:max-w-3xl">
+          <h1 style={{ fontSize: '28px' }}>Discover</h1>
         </div>
 
         {/* Search Section */}
-        <div className="px-6 pt-6">
-          {/* Search Input */}
+        <div className="px-6 pt-6 md:max-w-2xl md:mx-auto lg:max-w-3xl">
           <div className="relative mb-8">
             <div className="relative">
               <TextInput
@@ -142,7 +131,7 @@ export function SearchPage() {
               {searchQuery && (
                 <button
                   onClick={clearSearch}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 active:text-black transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-500 active:text-black hover:text-black transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -161,9 +150,8 @@ export function SearchPage() {
           </div>
         ) : (
           <>
-            {/* Recent Searches */}
             {recentSearches.length > 0 && (
-              <div className="px-6 mt-4">
+              <div className="px-6 mt-4 md:max-w-2xl md:mx-auto lg:max-w-3xl">
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="w-4 h-4 text-gray-500" />
                   <h3 className="text-sm text-gray-500">Recent Searches</h3>
@@ -172,7 +160,7 @@ export function SearchPage() {
                   {recentSearches.map((search, index) => (
                     <div
                       key={index}
-                      className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-2 active:border-gray-300 transition-colors rounded-[8px] shadow-[0px_1px_2px_0px_rgba(14,31,53,0.06)]"
+                      className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-2 active:border-gray-300 hover:border-gray-400 hover:shadow-sm transition-all rounded-[8px] shadow-[0px_1px_2px_0px_rgba(14,31,53,0.06)]"
                     >
                       <button
                         onClick={() => handleRecentClick(search)}
@@ -184,7 +172,7 @@ export function SearchPage() {
                         onClick={() => removeRecentSearch(index)}
                         className="transition-opacity"
                       >
-                        <X className="w-3 h-3 text-gray-400 active:text-gray-700" />
+                        <X className="w-3 h-3 text-gray-400 active:text-gray-700 hover:text-gray-700" />
                       </button>
                     </div>
                   ))}
@@ -195,7 +183,6 @@ export function SearchPage() {
         )}
       </div>
 
-      {/* Bottom Navigation */}
       <BottomNav />
     </div>
   );

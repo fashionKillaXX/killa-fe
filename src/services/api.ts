@@ -21,4 +21,21 @@ api.interceptors.request.use(
     }
 );
 
+// Add response interceptor to handle expired/invalid tokens
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (error.response?.status === 401) {
+            // Token is expired or invalid — clear auth state
+            localStorage.removeItem('auth_token');
+            localStorage.removeItem('auth_user');
+            // Dispatch a custom event so AuthContext can react
+            if (typeof window !== 'undefined') {
+                window.dispatchEvent(new Event('auth:logout'));
+            }
+        }
+        return Promise.reject(error);
+    }
+);
+
 export default api;

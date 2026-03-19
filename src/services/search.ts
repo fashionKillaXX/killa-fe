@@ -14,6 +14,10 @@ export interface SearchResponse {
     success: boolean;
     query: string;
     count: number;
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
     results: SearchResult[];
 }
 
@@ -27,17 +31,19 @@ const searchCache = new Map<string, SearchResponse>();
 const CACHE_LIMIT = 20;
 
 /**
- * Perform AI-powered search
+ * Perform AI-powered search with pagination support
  */
-export const searchAI = async (query: string, limit: number = 8): Promise<SearchResponse> => {
+export const searchAI = async (query: string, limit: number = 20, offset: number = 0): Promise<SearchResponse> => {
     try {
+        const cacheKey = `${query}:${offset}:${limit}`;
+
         // Check cache first
-        if (searchCache.has(query)) {
-            console.log('[SearchService] Returning cached result for:', query);
-            return searchCache.get(query)!;
+        if (searchCache.has(cacheKey)) {
+            console.log('[SearchService] Returning cached result for:', cacheKey);
+            return searchCache.get(cacheKey)!;
         }
 
-        const response = await api.get(`/api/search-ai/?query=${encodeURIComponent(query)}&limit=${limit}`);
+        const response = await api.get(`/api/search-ai/?query=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`);
 
         // Update cache
         if (response.data.success) {
@@ -46,7 +52,7 @@ export const searchAI = async (query: string, limit: number = 8): Promise<Search
                 const firstKey = searchCache.keys().next().value;
                 if (firstKey) searchCache.delete(firstKey);
             }
-            searchCache.set(query, response.data);
+            searchCache.set(cacheKey, response.data);
         }
 
         return response.data;
@@ -56,6 +62,10 @@ export const searchAI = async (query: string, limit: number = 8): Promise<Search
             success: false,
             query,
             count: 0,
+            total: 0,
+            offset: 0,
+            limit,
+            hasMore: false,
             results: []
         };
     }

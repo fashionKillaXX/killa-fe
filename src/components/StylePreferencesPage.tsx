@@ -62,7 +62,7 @@ export function StylePreferencesPage() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-white text-black flex flex-col max-w-md mx-auto">
+            <div className="min-h-screen bg-white text-black flex flex-col max-w-3xl mx-auto">
                 <SubpageHeader onBackClick={() => router.back()} showDivider={false} />
                 <div className="flex-1 flex items-center justify-center">
                     <p className="text-gray-500">Loading preferences...</p>
@@ -74,7 +74,7 @@ export function StylePreferencesPage() {
     if (!preferences) return null;
 
     return (
-        <div className="min-h-screen bg-white text-black flex flex-col max-w-md mx-auto">
+        <div className="min-h-screen bg-white text-black flex flex-col max-w-3xl mx-auto">
             {/* Header */}
             <SubpageHeader onBackClick={() => router.back()} showDivider={false} />
 

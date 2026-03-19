@@ -6,6 +6,7 @@ import { Plus } from "lucide-react";
 import { useSavedCollections } from "@/contexts/SavedCollectionsContext";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { BottomNav } from "@/components/BottomNav";
+import { DesktopNav } from "@/components/DesktopNav";
 import {
   Sheet,
   SheetContent,
@@ -55,13 +56,14 @@ export function CollectionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-black flex flex-col max-w-md mx-auto">
+    <div className="min-h-screen bg-white text-black flex flex-col max-w-md md:max-w-7xl mx-auto">
+      <DesktopNav />
       {/* Content */}
-      <div className="flex-1 overflow-y-auto pb-24">
+      <div className="flex-1 overflow-y-auto pb-24 md:pb-12">
         {/* Page Heading with Create Button */}
         <div className="px-6 pt-12 pb-4">
           <div className="flex items-center justify-between">
-            <h1 style={{ fontSize: '28px' }}>Saved condiments</h1>
+            <h1 style={{ fontSize: '28px' }}>Saved</h1>
             <button
               onClick={() => setSheetOpen(true)}
               className="p-2 active:bg-gray-100 transition-colors focus:outline-none"
@@ -125,13 +127,13 @@ export function CollectionsPage() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-x-6 gap-y-8">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-x-6 gap-y-8">
                   {collections.map((collection) => (
                     <button
                       key={collection.id}
                       onClick={() => {
                         if (collection.itemCount === 0) {
-                          toast("0 products. browse to find condiments");
+                          toast("No pieces saved yet — start browsing to add some");
                         } else {
                           handleCollectionClick(collection.id, collection.name);
                         }
@@ -139,7 +141,7 @@ export function CollectionsPage() {
                       className="text-left group focus:outline-none"
                     >
                       {/* Thumbnail */}
-                      <div className="aspect-square bg-gray-50 border border-gray-200 mb-3 overflow-hidden active:border-gray-300 transition-colors rounded-[8px] shadow-[0px_1px_3px_0px_rgba(14,31,53,0.08)]">
+                      <div className="aspect-square bg-gray-50 border border-gray-200 mb-3 overflow-hidden active:border-gray-300 transition-all duration-300 rounded-[8px] shadow-[0px_1px_3px_0px_rgba(14,31,53,0.08)] md:group-hover:scale-[1.03] md:group-hover:shadow-lg">
                         {collection.thumbnail ? (
                           <ImageWithFallback
                             src={collection.thumbnail}
@@ -192,7 +194,7 @@ export function CollectionsPage() {
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent
           side="bottom"
-          className="bg-white border-t border-gray-200 text-black max-w-md mx-auto rounded-t-[24px] p-0 focus:outline-none focus-visible:outline-none [&>button]:hidden shadow-[0px_-2px_4px_0px_rgba(14,31,53,0.12)]"
+          className="bg-white border-t border-gray-200 text-black max-w-7xl mx-auto rounded-t-[24px] p-0 focus:outline-none focus-visible:outline-none [&>button]:hidden shadow-[0px_-2px_4px_0px_rgba(14,31,53,0.12)]"
         >
           <SheetTitle className="sr-only">Create New Collection</SheetTitle>
           <SheetDescription className="sr-only">

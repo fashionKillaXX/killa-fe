@@ -10,7 +10,7 @@ interface SubpageHeaderProps {
 
 export function SubpageHeader({ onBackClick, showDivider = true }: SubpageHeaderProps) {
   return (
-    <div className="px-6 py-6">
+    <div className="px-6 py-6 md:hidden">
       <div className="flex items-center justify-between">
         <button
           onClick={onBackClick}

@@ -44,6 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(false);
   }, []);
 
+  // Listen for forced logout from API interceptor (expired token)
+  useEffect(() => {
+    const handleForcedLogout = () => {
+      setUser(null);
+      setToken(null);
+    };
+    window.addEventListener('auth:logout', handleForcedLogout);
+    return () => window.removeEventListener('auth:logout', handleForcedLogout);
+  }, []);
+
   const login = async (email: string, name?: string) => {
     try {
       const response = await api.post('/auth/email/', {
