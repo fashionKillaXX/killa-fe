@@ -90,7 +90,7 @@ function OutfitCard({ outfit }: { outfit: OutfitBlock }) {
   return (
     <>
       <div className="my-3 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-        {/* Header with Save Outfit button */}
+        {/* Header with action buttons */}
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-gray-900">
@@ -100,24 +100,27 @@ function OutfitCard({ outfit }: { outfit: OutfitBlock }) {
               <p className="text-xs text-gray-500 mt-0.5">{outfit.occasion}</p>
             )}
           </div>
-          <button
-            onClick={handleSaveOutfit}
-            disabled={isSaving}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-              isSaved
-                ? "bg-gray-100 text-gray-900"
-                : "bg-black text-white hover:bg-gray-800"
-            }`}
-          >
-            {isSaving ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : isSaved ? (
-              <BookmarkCheck className="w-3.5 h-3.5" />
-            ) : (
-              <Sparkles className="w-3.5 h-3.5" />
-            )}
-            {isSaved ? "Saved" : "Save Outfit"}
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Save Outfit button */}
+            <button
+              onClick={handleSaveOutfit}
+              disabled={isSaving}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                isSaved
+                  ? "bg-gray-100 text-gray-900"
+                  : "bg-black text-white hover:bg-gray-800"
+              }`}
+            >
+              {isSaving ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : isSaved ? (
+                <BookmarkCheck className="w-3.5 h-3.5" />
+              ) : (
+                <Sparkles className="w-3.5 h-3.5" />
+              )}
+              {isSaved ? "Saved" : "Save"}
+            </button>
+          </div>
         </div>
 
         {/* Products */}

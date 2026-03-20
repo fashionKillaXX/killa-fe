@@ -40,3 +40,4 @@ export async function listOutfits(): Promise<SavedOutfit[]> {
 export async function deleteOutfit(outfitId: string): Promise<void> {
   await api.delete(`/api/outfits/${outfitId}/delete/`);
 }
+
