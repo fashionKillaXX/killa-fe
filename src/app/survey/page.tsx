@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { LandingPage } from "@/components/LandingPage";
-import { ProductDisplay } from "@/components/ProductDisplay";
+import ProductDisplay from "@/components/ProductDisplay";
 
 export default function SurveyPage() {
   const { isAuthenticated, isLoading } = useAuth();
