@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { Home, Search, Bookmark, User } from "lucide-react";
+import { Home, Search, Bookmark, User, Sparkles } from "lucide-react";
 import { GradientDivider } from "@/components/GradientDivider";
 
 /**
@@ -17,6 +17,7 @@ export function BottomNav() {
     if (pathname === "/") return "home";
     if (pathname.startsWith("/products") || pathname.startsWith("/category")) return "home";
     if (pathname.startsWith("/collections")) return "collections";
+    if (pathname.startsWith("/chat")) return "chat";
     if (pathname.startsWith("/search")) return "search";
     if (pathname.startsWith("/profile") || pathname.startsWith("/preferences")) return "profile";
     return "home";
@@ -45,6 +46,16 @@ export function BottomNav() {
           <Search
             className={`w-5 h-5 ${
               activeTab === "search" ? "text-black" : "text-gray-400"
+            }`}
+          />
+        </button>
+        <button
+          onClick={() => router.push("/chat")}
+          className="flex flex-col items-center gap-1 p-2 focus:outline-none"
+        >
+          <Sparkles
+            className={`w-5 h-5 ${
+              activeTab === "chat" ? "text-black" : "text-gray-400"
             }`}
           />
         </button>

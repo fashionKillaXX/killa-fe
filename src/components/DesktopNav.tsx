@@ -47,6 +47,9 @@ export function DesktopNav() {
         <button onClick={() => router.push("/search")} className={linkClass("/search")}>
           Search
         </button>
+        <button onClick={() => router.push("/chat")} className={linkClass("/chat")}>
+          Style Buddy
+        </button>
         <button onClick={() => router.push("/collections")} className={linkClass("/collections")}>
           Collections
         </button>

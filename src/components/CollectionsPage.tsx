@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Plus } from "lucide-react";
+import { Plus, Trash2, Sparkles } from "lucide-react";
 import { useSavedCollections } from "@/contexts/SavedCollectionsContext";
 import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
 import { BottomNav } from "@/components/BottomNav";
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { listOutfits, deleteOutfit, SavedOutfit } from "@/services/outfits";
 
 /**
  * CollectionsPage displays saved collections with Items/Outfits tabs.
@@ -27,11 +28,36 @@ export function CollectionsPage() {
   const [newCollectionName, setNewCollectionName] = useState("");
   const [sheetOpen, setSheetOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState("items");
+  const [outfits, setOutfits] = useState<SavedOutfit[]>([]);
+  const [outfitsLoaded, setOutfitsLoaded] = useState(false);
 
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
+
+  // Load outfits when tab switches to outfits
+  useEffect(() => {
+    if (currentTab === "outfits" && !outfitsLoaded) {
+      listOutfits()
+        .then((data) => {
+          setOutfits(data);
+          setOutfitsLoaded(true);
+        })
+        .catch((e) => console.error("Failed to load outfits:", e));
+    }
+  }, [currentTab, outfitsLoaded]);
+
+  const handleDeleteOutfit = async (outfitId: string) => {
+    try {
+      await deleteOutfit(outfitId);
+      setOutfits((prev) => prev.filter((o) => o.outfitId !== outfitId));
+      toast.success("Outfit deleted");
+    } catch (e) {
+      console.error("Failed to delete outfit:", e);
+      toast.error("Failed to delete outfit");
+    }
+  };
 
   const handleCreateCollection = () => {
     if (newCollectionName.trim()) {
@@ -173,15 +199,99 @@ export function CollectionsPage() {
 
           {currentTab === "outfits" && (
             <div className="px-6">
-              <div className="text-center py-16">
-                <div className="w-16 h-16 mx-auto mb-4 border border-gray-200 flex items-center justify-center rounded-[8px] shadow-[0px_1px_2px_0px_rgba(14,31,53,0.06)]">
-                  <Plus className="w-8 h-8 text-gray-400" />
+              {outfits.length === 0 ? (
+                <div className="text-center py-16">
+                  <div className="w-16 h-16 mx-auto mb-4 border border-gray-200 flex items-center justify-center rounded-[8px] shadow-[0px_1px_2px_0px_rgba(14,31,53,0.06)]">
+                    <Sparkles className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <p className="text-gray-600 mb-2">No outfits yet</p>
+                  <p className="text-gray-400 text-sm">
+                    Ask Style Buddy to create outfits and save them here
+                  </p>
+                  <button
+                    onClick={() => router.push("/chat")}
+                    className="mt-4 px-4 py-2 bg-black text-white text-sm rounded-lg hover:bg-gray-800 transition-colors"
+                  >
+                    Open Style Buddy
+                  </button>
                 </div>
-                <p className="text-gray-600 mb-2">No outfits yet</p>
-                <p className="text-gray-400">
-                  Coming soon - create and save complete outfits
-                </p>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {outfits.map((outfit) => (
+                    <div
+                      key={outfit.outfitId}
+                      className="border border-gray-200 rounded-xl overflow-hidden shadow-sm"
+                    >
+                      {/* Outfit header */}
+                      <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-900">
+                            {outfit.name}
+                          </h3>
+                          {outfit.occasion && (
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {outfit.occasion}
+                            </p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteOutfit(outfit.outfitId)}
+                          className="p-1.5 text-gray-300 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      {/* Product thumbnails grid */}
+                      <div className="grid grid-cols-2 gap-px bg-gray-100">
+                        {outfit.products.slice(0, 4).map((p) => (
+                          <button
+                            key={p.productId}
+                            onClick={() =>
+                              router.push(`/products/${p.productId}`)
+                            }
+                            className="bg-white p-2 flex flex-col items-center text-center hover:bg-gray-50 transition-colors"
+                          >
+                            <div className="w-full aspect-[3/4] rounded-lg overflow-hidden bg-gray-50 mb-1.5">
+                              {p.productImageUrl ? (
+                                <img
+                                  src={p.productImageUrl}
+                                  alt={p.name}
+                                  className="w-full h-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-gray-300">
+                                  <Sparkles className="w-5 h-5" />
+                                </div>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-gray-400 uppercase tracking-wider">
+                              {p.slot}
+                            </p>
+                            <p className="text-xs text-gray-900 line-clamp-1">
+                              {p.name}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Footer */}
+                      <div className="px-4 py-2 border-t border-gray-100 flex items-center justify-between">
+                        <p className="text-[11px] text-gray-400">
+                          {outfit.products.length} pieces
+                        </p>
+                        <p className="text-[11px] text-gray-400">
+                          {new Date(outfit.created_at).toLocaleDateString(
+                            "en-IN",
+                            { day: "numeric", month: "short" }
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
