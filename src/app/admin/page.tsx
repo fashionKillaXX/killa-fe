@@ -242,6 +242,23 @@ function BrandsSection({
   const [ig, setIg] = useState('');
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
+  const [scrapingBrand, setScrapingBrand] = useState<string | null>(null);
+
+  const handleScrape = async (brand: Brand) => {
+    if (!brand.url) {
+      alert('Brand has no URL configured');
+      return;
+    }
+    setScrapingBrand(brand.brandId);
+    try {
+      await createJob('scraping_pipeline', { brand_urls: [brand.url] });
+      onRefresh();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setScrapingBrand(null);
+    }
+  };
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -321,6 +338,7 @@ function BrandsSection({
                 <th className="pb-2 font-medium">URL</th>
                 <th className="pb-2 font-medium text-right">Products</th>
                 <th className="pb-2 font-medium text-right">Added</th>
+                <th className="pb-2 font-medium text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
@@ -345,11 +363,26 @@ function BrandsSection({
                   <td className="py-2 text-right text-gray-400">
                     {b.created_at ? timeAgo(b.created_at) : '—'}
                   </td>
+                  <td className="py-2 text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={!b.url || scrapingBrand === b.brandId}
+                      onClick={() => handleScrape(b)}
+                    >
+                      {scrapingBrand === b.brandId ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Play className="h-3 w-3" />
+                      )}
+                      <span className="ml-1">Scrape</span>
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-gray-400">
+                  <td colSpan={5} className="py-8 text-center text-gray-400">
                     No brands found
                   </td>
                 </tr>
@@ -377,9 +410,20 @@ function JobsSection({
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [jobLogs, setJobLogs] = useState<Record<string, string>>({});
 
-  const launchJob = async (jobType: JobType, params: Record<string, any> = {}) => {
+  const launchJob = async (jobType: JobType) => {
     setLaunching(jobType);
     try {
+      const params: Record<string, any> = {};
+      // Scraping pipeline needs brand_urls
+      if (jobType === 'scraping_pipeline') {
+        const urls = brands.filter((b) => b.url).map((b) => b.url!);
+        if (urls.length === 0) {
+          alert('No brands with URLs to scrape');
+          setLaunching(null);
+          return;
+        }
+        params.brand_urls = urls;
+      }
       await createJob(jobType, params);
       onRefresh();
     } catch (e: any) {
