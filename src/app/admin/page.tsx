@@ -243,6 +243,7 @@ function BrandsSection({
   const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState('');
   const [scrapingBrand, setScrapingBrand] = useState<string | null>(null);
+  const [busyBrand, setBusyBrand] = useState<{ id: string; action: string } | null>(null);
 
   const handleScrape = async (brand: Brand) => {
     if (!brand.url) {
@@ -257,6 +258,18 @@ function BrandsSection({
       alert(e.message);
     } finally {
       setScrapingBrand(null);
+    }
+  };
+
+  const handleBrandAction = async (brand: Brand, jobType: JobType) => {
+    setBusyBrand({ id: brand.brandId, action: jobType });
+    try {
+      await createJob(jobType, { brand_ids: [brand.brandId] });
+      onRefresh();
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setBusyBrand(null);
     }
   };
 
@@ -363,7 +376,7 @@ function BrandsSection({
                   <td className="py-2 text-right text-gray-400">
                     {b.created_at ? timeAgo(b.created_at) : '—'}
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="py-2 text-right flex gap-1 justify-end">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -376,6 +389,32 @@ function BrandsSection({
                         <Play className="h-3 w-3" />
                       )}
                       <span className="ml-1">Scrape</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busyBrand?.id === b.brandId && busyBrand?.action === 'llm_analysis'}
+                      onClick={() => handleBrandAction(b, 'llm_analysis')}
+                    >
+                      {busyBrand?.id === b.brandId && busyBrand?.action === 'llm_analysis' ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
+                      <span className="ml-1">GPT Tags</span>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={busyBrand?.id === b.brandId && busyBrand?.action === 'embedding_generation'}
+                      onClick={() => handleBrandAction(b, 'embedding_generation')}
+                    >
+                      {busyBrand?.id === b.brandId && busyBrand?.action === 'embedding_generation' ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Tags className="h-3 w-3" />
+                      )}
+                      <span className="ml-1">Embed</span>
                     </Button>
                   </td>
                 </tr>
