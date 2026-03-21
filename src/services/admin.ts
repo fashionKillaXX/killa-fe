@@ -17,7 +17,7 @@ function authHeaders(): HeadersInit {
 // ── Auth / Whitelist ──────────────────────────────────────────────────
 
 export async function checkAdminAccess(email: string): Promise<boolean> {
-  const res = await fetch(`${BACKEND_URL}/admin/auth/check/`, {
+  const res = await fetch(`${BACKEND_URL}/api/admin/auth/check/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
@@ -47,7 +47,7 @@ export interface DashboardStats {
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
-  const res = await fetch(`${BACKEND_URL}/admin/dashboard/stats/`, {
+  const res = await fetch(`${BACKEND_URL}/api/admin/dashboard/stats/`, {
     headers: authHeaders(),
   });
   const data = await res.json();
@@ -67,7 +67,7 @@ export interface Brand {
 }
 
 export async function fetchBrands(): Promise<Brand[]> {
-  const res = await fetch(`${BACKEND_URL}/admin/brands/`, {
+  const res = await fetch(`${BACKEND_URL}/api/admin/brands/`, {
     headers: authHeaders(),
   });
   const data = await res.json();
@@ -79,7 +79,7 @@ export async function createBrand(brand: {
   url?: string;
   brandInstagram?: string;
 }): Promise<Brand> {
-  const res = await fetch(`${BACKEND_URL}/admin/brands/`, {
+  const res = await fetch(`${BACKEND_URL}/api/admin/brands/`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify(brand),
@@ -90,7 +90,7 @@ export async function createBrand(brand: {
 }
 
 export async function deleteBrand(brandId: string): Promise<void> {
-  const res = await fetch(`${BACKEND_URL}/admin/brands/`, {
+  const res = await fetch(`${BACKEND_URL}/api/admin/brands/`, {
     method: 'DELETE',
     headers: authHeaders(),
     body: JSON.stringify({ brandId }),
@@ -123,7 +123,7 @@ export interface Job {
 }
 
 export async function fetchJobs(): Promise<Job[]> {
-  const res = await fetch(`${BACKEND_URL}/admin/jobs/`, {
+  const res = await fetch(`${BACKEND_URL}/api/admin/jobs/`, {
     headers: authHeaders(),
   });
   const data = await res.json();
@@ -131,7 +131,7 @@ export async function fetchJobs(): Promise<Job[]> {
 }
 
 export async function fetchJobDetail(jobId: string): Promise<Job> {
-  const res = await fetch(`${BACKEND_URL}/admin/jobs/${jobId}/`, {
+  const res = await fetch(`${BACKEND_URL}/api/admin/jobs/${jobId}/`, {
     headers: authHeaders(),
   });
   const data = await res.json();
@@ -142,7 +142,7 @@ export async function createJob(
   jobType: JobType,
   parameters: Record<string, any> = {},
 ): Promise<string> {
-  const res = await fetch(`${BACKEND_URL}/admin/jobs/`, {
+  const res = await fetch(`${BACKEND_URL}/api/admin/jobs/`, {
     method: 'POST',
     headers: authHeaders(),
     body: JSON.stringify({ job_type: jobType, parameters }),
