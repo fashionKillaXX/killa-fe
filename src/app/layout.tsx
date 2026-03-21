@@ -5,8 +5,8 @@ import { Providers } from "@/components/Providers";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: "Fashion Survey",
-  description: "Help us understand fashion preferences through product ratings",
+  title: "FitCurry — Discover Indie Indian Fashion",
+  description: "AI-powered outfit recommendations from 140+ indie Indian brands. Find your style, build your wardrobe.",
 };
 
 export default function RootLayout({

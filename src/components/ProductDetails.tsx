@@ -97,6 +97,36 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
     }
   };
 
+  // Build a description from tags when none exists
+  const productDescription = (() => {
+    if (product.description) return product.description;
+    const t = product.tags;
+    if (!t || typeof t !== 'object') return null;
+
+    const parts: string[] = [];
+    const color = Array.isArray(t.color) ? t.color[0] : t.color;
+    const fit = t.fit_type;
+    const sub = t.subcategory;
+    const cloth = t.cloth_type;
+    const vibe = Array.isArray(t.vibe) ? t.vibe.slice(0, 2) : [];
+    const occasion = Array.isArray(t.occasion) ? t.occasion.slice(0, 2) : [];
+
+    // e.g. "A relaxed navy cotton shirt"
+    if (fit && fit !== 'regular') parts.push(fit);
+    if (color) parts.push(color);
+    if (cloth) parts.push(cloth);
+    if (sub) parts.push(sub);
+
+    let line = parts.length > 0
+      ? `A ${parts.join(' ')}`
+      : `A ${t.category || 'piece'}`;
+
+    if (vibe.length > 0) line += ` with a ${vibe.join(' and ')} vibe`;
+    if (occasion.length > 0) line += `. Great for ${occasion.join(', ')}`;
+
+    return line.endsWith('.') ? line : line + '.';
+  })();
+
   const instagramLink = product.brand?.brandInstagram
     ? `https://instagram.com/${product.brand.brandInstagram}`
     : product.productUrl;
@@ -188,9 +218,9 @@ export function ProductDetails({ productId }: ProductDetailsProps) {
                 <p className="text-sm lg:text-lg mt-2">{"\u20B9"} {product.price.toFixed(2)}</p>
               )}
 
-              {product.description && (
+              {productDescription && (
                 <p className="text-sm lg:text-base text-gray-600 mt-4 lg:mt-6 leading-relaxed">
-                  {product.description}
+                  {productDescription}
                 </p>
               )}
             </div>
