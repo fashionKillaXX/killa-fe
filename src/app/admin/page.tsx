@@ -89,13 +89,29 @@ export default function AdminPage() {
   // Check admin access on mount
   useEffect(() => {
     const user = getStoredUser();
-    if (!user?.email) {
+    // Fallback: read user directly from localStorage if getStoredUser returns null
+    let email = user?.email;
+    if (!email && typeof window !== 'undefined') {
+      try {
+        const raw = localStorage.getItem('user');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          email = parsed.email || parsed.emailId;
+        }
+      } catch {}
+    }
+    console.log('[Admin] user from auth:', user, 'email:', email);
+    if (!email) {
       setAuthorized(false);
       setLoading(false);
       return;
     }
-    checkAdminAccess(user.email).then((ok) => {
+    checkAdminAccess(email).then((ok) => {
+      console.log('[Admin] whitelist check:', ok);
       setAuthorized(ok);
+      setLoading(false);
+    }).catch(() => {
+      setAuthorized(false);
       setLoading(false);
     });
   }, []);
