@@ -3,12 +3,10 @@
  * Talks to /admin/ endpoints on the backend.
  */
 
-import { getStoredToken } from '@/lib/auth';
-
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
 
 function authHeaders(): HeadersInit {
-  const token = getStoredToken();
+  const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
   const h: HeadersInit = { 'Content-Type': 'application/json' };
   if (token) h['Authorization'] = `Bearer ${token}`;
   return h;

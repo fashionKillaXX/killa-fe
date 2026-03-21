@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { getStoredUser } from '@/lib/auth';
+import { useAuth } from '@/contexts/AuthContext';
 import {
   checkAdminAccess,
   fetchDashboardStats,
@@ -86,35 +86,23 @@ export default function AdminPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Check admin access on mount
+  const { user: authUser, isAuthenticated, isLoading: authLoading } = useAuth();
+
   useEffect(() => {
-    const user = getStoredUser();
-    // Fallback: read user directly from localStorage if getStoredUser returns null
-    let email = user?.email;
-    if (!email && typeof window !== 'undefined') {
-      try {
-        const raw = localStorage.getItem('user');
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          email = parsed.email || parsed.emailId;
-        }
-      } catch {}
-    }
-    console.log('[Admin] user from auth:', user, 'email:', email);
-    if (!email) {
+    if (authLoading) return;
+    if (!isAuthenticated || !authUser?.email) {
       setAuthorized(false);
       setLoading(false);
       return;
     }
-    checkAdminAccess(email).then((ok) => {
-      console.log('[Admin] whitelist check:', ok);
+    checkAdminAccess(authUser.email).then((ok) => {
       setAuthorized(ok);
       setLoading(false);
     }).catch(() => {
       setAuthorized(false);
       setLoading(false);
     });
-  }, []);
+  }, [authUser, isAuthenticated, authLoading]);
 
   // Load data once authorized
   const loadData = useCallback(async () => {
