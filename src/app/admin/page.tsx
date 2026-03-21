@@ -410,6 +410,23 @@ function JobsSection({
   const [expandedJob, setExpandedJob] = useState<string | null>(null);
   const [jobLogs, setJobLogs] = useState<Record<string, string>>({});
 
+  // Auto-poll logs for expanded running jobs
+  useEffect(() => {
+    if (!expandedJob) return;
+    const job = jobs.find((j) => j.jobId === expandedJob);
+    if (!job || (job.status !== 'running' && job.status !== 'pending')) return;
+
+    const poll = async () => {
+      try {
+        const detail = await fetchJobDetail(expandedJob);
+        setJobLogs((prev) => ({ ...prev, [expandedJob]: detail.logs || 'Waiting for logs...' }));
+      } catch {}
+    };
+    poll(); // immediate first fetch
+    const id = setInterval(poll, 3000);
+    return () => clearInterval(id);
+  }, [expandedJob, jobs]);
+
   const launchJob = async (jobType: JobType) => {
     setLaunching(jobType);
     try {
