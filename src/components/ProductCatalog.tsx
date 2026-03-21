@@ -288,18 +288,20 @@ export function ProductCatalog({
                 </div>
 
                 {/* Product Info */}
-                <div className="flex items-start justify-between mt-2 gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs md:text-sm text-gray-700 truncate">
+                <div className="flex items-start justify-between mt-2 gap-1">
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <p className="text-xs md:text-sm text-gray-700 truncate leading-snug">
                       {product.name}
                     </p>
                     {product.price != null && (
-                      <p className="text-sm md:text-base mt-0.5">{"\u20B9"} {product.price.toFixed(2)}</p>
+                      <p className="text-xs md:text-sm text-black mt-0.5 tracking-wide">
+                        {"\u20B9"}{product.price.toFixed(0)}
+                      </p>
                     )}
                   </div>
                   <button
                     onClick={(e) => handleBookmarkClick(product, e)}
-                    className="p-1 -mr-1 flex-shrink-0 opacity-0 group-hover:opacity-100 md:transition-opacity duration-200"
+                    className="flex-shrink-0 p-1 -mr-1 transition-opacity duration-200 opacity-40 group-hover:opacity-100"
                     style={{ opacity: product.bookmarked ? 1 : undefined }}
                   >
                     <BookmarkIcon isSaved={product.bookmarked} />

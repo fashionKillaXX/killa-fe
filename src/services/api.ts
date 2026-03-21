@@ -1,7 +1,9 @@
 import axios from 'axios';
 
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000';
+
 const api = axios.create({
-    baseURL: (typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_BACKEND_URL : '') + '/fashion',
+    baseURL: BACKEND_URL + '/fashion',
     headers: {
         'Content-Type': 'application/json',
     },
@@ -37,5 +39,24 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+export interface TagPreviewItem {
+  productId: string;
+  name: string;
+  productImageUrl: string;
+  brand: string;
+}
+
+export interface TagPreviewsResponse {
+  occasion: TagPreviewItem[];
+  vibe: TagPreviewItem[];
+  fit: TagPreviewItem[];
+  season: TagPreviewItem[];
+}
+
+export async function fetchTagPreviews(limit = 20): Promise<TagPreviewsResponse> {
+  const res = await api.get<TagPreviewsResponse>(`/api/products/tag-previews/?limit=${limit}`);
+  return res.data;
+}
 
 export default api;

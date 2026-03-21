@@ -1,306 +1,373 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { ImageWithFallback } from "@/components/figma/ImageWithFallback";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  type CarouselApi,
-} from "@/components/ui/carousel";
-import { GradientDivider } from "@/components/GradientDivider";
 import { BottomNav } from "@/components/BottomNav";
 import { DesktopNav } from "@/components/DesktopNav";
 import { Header } from "@/components/Header";
-import { fetchHomepageStructure, type Product } from "@/services/homepage";
-import { fetchProductsUnified } from "@/services/products";
+import { fetchTagPreviews, TagPreviewsResponse } from "@/services/api";
 
-/**
- * HomePage client component.
- * Renders the main homepage with featured product carousel, curations,
- * scenes, and vibes sections. Uses Next.js router for all navigation.
- */
-export function HomePage() {
-  const router = useRouter();
+type CardItem = {
+  value: string;
+  image: string;
+  productId?: string;
+};
 
-  // Carousel state
-  const [carouselPosition, setCarouselPosition] = useState(0);
-  const [carouselApi, setCarouselApi] = useState<CarouselApi>();
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [slideCount, setSlideCount] = useState(0);
+type ExploreCardConfig = {
+  title: "Occasion" | "Vibe" | "Season" | "Fit";
+  subtitle: string;
+  queryKey: "scene" | "vibe" | "search";
+  items: CardItem[];
+  quickTags: string[];
+  reverse?: boolean;
+};
 
-  // Data state
-  const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
-  const [scenes, setScenes] = useState<string[]>([]);
-  const [vibes, setVibes] = useState<string[]>([]);
-  const [collections, setCollections] = useState<{ id: string; name: string; items: Product[] }[]>([]);
-  const [loading, setLoading] = useState(true);
+type TagPreviewCachePayload = {
+  expiresAt: number;
+  data: TagPreviewsResponse;
+};
+
+const TAG_PREVIEWS_CACHE_KEY = "fashionkilla:tag-previews:v1";
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+const EXPLORE_CARDS: ExploreCardConfig[] = [
+  {
+    title: "Occasion",
+    subtitle: "Looks for every moment",
+    queryKey: "scene",
+    quickTags: ["casual", "party", "wedding"],
+    items: [
+      { value: "casual", image: "https://images.unsplash.com/photo-1483985988355-763728e1935b?w=900&q=80&auto=format&fit=crop" },
+      { value: "everyday", image: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=900&q=80&auto=format&fit=crop" },
+      { value: "work", image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=900&q=80&auto=format&fit=crop" },
+      { value: "party", image: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=900&q=80&auto=format&fit=crop" },
+      { value: "streetwear", image: "https://images.unsplash.com/photo-1523398002811-999ca8dec234?w=900&q=80&auto=format&fit=crop" },
+      { value: "wedding", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=900&q=80&auto=format&fit=crop" },
+    ],
+  },
+  {
+    title: "Vibe",
+    subtitle: "Define your aesthetic",
+    queryKey: "vibe",
+    quickTags: ["minimalist", "luxury", "y2k"],
+    reverse: true,
+    items: [
+      { value: "trendy", image: "https://images.unsplash.com/photo-1512436991641-6745cdb1723f?w=900&q=80&auto=format&fit=crop" },
+      { value: "minimalist", image: "https://images.unsplash.com/photo-1509631179647-0177331693ae?w=900&q=80&auto=format&fit=crop" },
+      { value: "classic", image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&q=80&auto=format&fit=crop" },
+      { value: "luxury", image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80&auto=format&fit=crop" },
+      { value: "boho", image: "https://images.unsplash.com/photo-1524502397800-2eeaad7c3fe5?w=900&q=80&auto=format&fit=crop" },
+      { value: "y2k", image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=900&q=80&auto=format&fit=crop" },
+    ],
+  },
+  {
+    title: "Season",
+    subtitle: "Curated for the weather",
+    queryKey: "search",
+    quickTags: ["summer", "fall", "winter"],
+    items: [
+      { value: "spring", image: "https://images.unsplash.com/photo-1462275646964-a0e3386b89fa?w=900&q=80&auto=format&fit=crop" },
+      { value: "summer", image: "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?w=900&q=80&auto=format&fit=crop" },
+      { value: "fall", image: "https://images.unsplash.com/photo-1479064555552-3ef4979f8908?w=900&q=80&auto=format&fit=crop" },
+      { value: "winter", image: "https://images.unsplash.com/photo-1483982258113-b72862e6cff6?w=900&q=80&auto=format&fit=crop" },
+      { value: "all-season", image: "https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=900&q=80&auto=format&fit=crop" },
+    ],
+  },
+  {
+    title: "Fit",
+    subtitle: "Silhouette and structure",
+    queryKey: "search",
+    quickTags: ["oversized", "tailored", "baggy"],
+    reverse: true,
+    items: [
+      { value: "oversized", image: "https://images.unsplash.com/photo-1514996937319-344454492b37?w=900&q=80&auto=format&fit=crop" },
+      { value: "regular", image: "https://images.unsplash.com/photo-1543087903-1ac2ec7aa8dd?w=900&q=80&auto=format&fit=crop" },
+      { value: "tailored", image: "https://images.unsplash.com/photo-1617127365659-c47fa864d8bc?w=900&q=80&auto=format&fit=crop" },
+      { value: "baggy", image: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=900&q=80&auto=format&fit=crop" },
+      { value: "cropped", image: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=900&q=80&auto=format&fit=crop" },
+    ],
+  },
+];
+
+function ExploreCard({
+  card,
+  onSelect,
+  onProductClick,
+  isLoading,
+}: {
+  card: ExploreCardConfig;
+  onSelect: (queryKey: "scene" | "vibe" | "search", value: string) => void;
+  onProductClick: (productId: string) => void;
+  isLoading: boolean;
+}) {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const pausedRef = useRef(false);
+  const hasItems = card.items.length > 0;
+  const doubled = hasItems ? [...card.items, ...card.items] : [];
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const structure = await fetchHomepageStructure();
-        setScenes(structure.scenes);
-        setVibes(structure.vibes);
-        setCollections(structure.collections.map(c => ({
-          id: c.id,
-          name: c.name,
-          items: []
-        })));
+    if (!hasItems) return;
+    const track = trackRef.current;
+    if (!track) return;
+    const speed = card.reverse ? -0.32 : 0.32;
+    let pos = card.reverse ? -(track.scrollWidth / 2) : 0;
 
-        const featuredResponse = await fetchProductsUnified({ featured: true, limit: 5 });
-        if (featuredResponse.success) {
-          setFeaturedProducts(featuredResponse.products);
-        }
-      } catch (error) {
-        console.error("Error loading homepage data:", error);
-      } finally {
-        setLoading(false);
+    const tick = () => {
+      if (!pausedRef.current) {
+        pos += speed;
+        const half = track.scrollWidth / 2;
+        if (pos >= half) pos -= half;
+        if (pos < 0) pos += half;
+        track.style.transform = `translateX(${-pos}px)`;
       }
+      rafRef.current = requestAnimationFrame(tick);
     };
-    loadData();
-  }, []);
+    rafRef.current = requestAnimationFrame(tick);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [card.reverse, hasItems]);
 
-  useEffect(() => {
-    if (!carouselApi) return;
-    setSlideCount(carouselApi.scrollSnapList().length);
-    if (carouselPosition !== undefined && carouselPosition !== carouselApi.selectedScrollSnap()) {
-      carouselApi.scrollTo(carouselPosition, true);
-    }
-    setCurrentSlide(carouselApi.selectedScrollSnap());
-    carouselApi.on("select", () => {
-      const newPosition = carouselApi.selectedScrollSnap();
-      setCurrentSlide(newPosition);
-      setCarouselPosition(newPosition);
-    });
-  }, [carouselApi, carouselPosition]);
+  return (
+    <div
+      className="group relative overflow-hidden rounded-xl border border-gray-100/90 bg-black/[0.04] shadow-[0_8px_30px_rgba(0,0,0,0.06)] transition-all duration-500 ease-out hover:-translate-y-0.5 hover:border-gray-200 hover:shadow-[0_14px_38px_rgba(0,0,0,0.11)]"
+      style={{ minHeight: 250 }}
+      onMouseEnter={() => { pausedRef.current = true; }}
+      onMouseLeave={() => { pausedRef.current = false; }}
+      onTouchStart={() => { pausedRef.current = true; }}
+      onTouchEnd={() => { pausedRef.current = false; }}
+    >
+      <div className="absolute inset-0 overflow-hidden">
+        {hasItems ? (
+          <div ref={trackRef} className="flex h-full gap-2 will-change-transform" style={{ width: "max-content" }}>
+            {doubled.map((item, i) => (
+              <button
+                key={(item.productId ?? item.value) + i}
+                onClick={() => item.productId ? onProductClick(item.productId) : onSelect(card.queryKey, item.value)}
+                className="group/item relative h-full flex-shrink-0 overflow-hidden rounded-[10px] transition-transform duration-500 ease-out hover:scale-[1.04] focus-visible:scale-[1.04] focus-visible:outline-none"
+                style={{ width: 128 }}
+              >
+                <img
+                  src={item.image}
+                  alt={item.value}
+                  className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover/item:scale-[1.08]"
+                />
+                <span className="pointer-events-none absolute inset-0 bg-white/0 transition-colors duration-500 ease-out group-hover/item:bg-white/[0.08]" />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex h-full gap-2 px-2 py-2">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={idx}
+                className="h-full w-32 flex-shrink-0 animate-pulse rounded-[10px] bg-white/20"
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-  const CATEGORY_STYLES: Record<string, { src: string; className?: string }> = {
-    "static distortion": { src: "https://images.unsplash.com/photo-1550614000-4b9519e02a48?w=800&q=80" },
-    "midnight voltage": { src: "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=800&q=80" },
-    "urban flux": { src: "https://images.unsplash.com/photo-1523396896302-804197452237?w=800&q=80" },
-    "digital haze": { src: "https://images.unsplash.com/photo-1506619216599-9d16d0903dfd?w=800&q=80" },
-    "party": { src: "/gradient_liquid_1.png" },
-    "work": { src: "/gradient_liquid_2.png" },
-    "casual": { src: "/gradient_liquid_3.png" },
-    "gym": { src: "/gradient_liquid_1.png", className: "hue-rotate-[90deg] brightness-110" },
-    "date night": { src: "/gradient_liquid_1.png", className: "hue-rotate-[290deg] saturate-150" },
-    "everyday": { src: "/gradient_liquid_3.png", className: "hue-rotate-[45deg] saturate-[0.8]" },
-    "streetwear": { src: "/gradient_liquid_2.png", className: "hue-rotate-[180deg] contrast-125" },
-    "minimalist": { src: "/gradient_liquid_2.png", className: "grayscale brightness-110" },
-    "vintage": { src: "/gradient_liquid_3.png", className: "hue-rotate-[200deg] sepia-[0.3]" },
-    "bohemian": { src: "/gradient_liquid_3.png", className: "sepia contrast-110" },
-    "chic": { src: "/gradient_liquid_1.png", className: "hue-rotate-[45deg] saturate-[0.8]" },
-    "trendy": { src: "/gradient_liquid_1.png", className: "hue-rotate-[180deg] brightness-110" },
-    "classic": { src: "/gradient_liquid_2.png", className: "grayscale contrast-125" },
-    "artistic": { src: "/gradient_liquid_1.png", className: "hue-rotate-[270deg] contrast-110" },
+      <div
+        className="pointer-events-none absolute inset-0 transition-opacity duration-500 ease-out group-hover:opacity-95"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,0.68) 0%, rgba(0,0,0,0.24) 42%, rgba(0,0,0,0.1) 100%)" }}
+      />
+
+      <div className="absolute inset-x-0 top-0 p-4">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-white/75">{card.subtitle}</p>
+        <h2 className="text-2xl text-white" style={{ letterSpacing: "-0.02em", fontWeight: 350 }}>
+          {card.title}
+        </h2>
+      </div>
+
+      {!isLoading && !hasItems && (
+        <div className="absolute inset-x-0 bottom-0 p-4">
+          <p className="text-[10px] uppercase tracking-[0.16em] text-white/85">
+            No products available right now
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function mergeWithApiData(
+  base: ExploreCardConfig[],
+  data: TagPreviewsResponse
+): ExploreCardConfig[] {
+  const sectionMap: Record<string, keyof TagPreviewsResponse> = {
+    Occasion: "occasion",
+    Vibe: "vibe",
+    Season: "season",
+    Fit: "fit",
   };
 
-  const getCategoryStyle = (name: string, fallbackSrc?: string) => {
-    const lowerName = name.toLowerCase();
-    if (CATEGORY_STYLES[lowerName]) return CATEGORY_STYLES[lowerName];
-    const key = Object.keys(CATEGORY_STYLES).find(k => lowerName.includes(k));
-    if (key) return CATEGORY_STYLES[key];
-    return { src: fallbackSrc || "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=800&q=80" };
+  return base.map((card) => {
+    const key = sectionMap[card.title];
+    const apiItems = key ? data[key] : [];
+
+    return {
+      ...card,
+      items: (apiItems ?? []).map((p) => ({
+        value: p.name,
+        image: p.productImageUrl,
+        productId: p.productId,
+      })),
+    };
+  });
+}
+
+function getEmptyTagPreviewData(): TagPreviewsResponse {
+  return {
+    occasion: [],
+    vibe: [],
+    fit: [],
+    season: [],
+  };
+}
+
+function readTagPreviewCache(): TagPreviewCachePayload | null {
+  try {
+    const raw = localStorage.getItem(TAG_PREVIEWS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as TagPreviewCachePayload;
+    if (!parsed?.data || typeof parsed.expiresAt !== "number") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeTagPreviewCache(data: TagPreviewsResponse): void {
+  try {
+    const payload: TagPreviewCachePayload = {
+      data,
+      expiresAt: Date.now() + ONE_DAY_MS,
+    };
+    localStorage.setItem(TAG_PREVIEWS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // ignore cache write failures (private mode, quota, etc.)
+  }
+}
+
+function hasImages(items: { productImageUrl: string }[]): boolean {
+  return items.some((item) => Boolean(item.productImageUrl));
+}
+
+function hasAllSectionsWithImages(data: TagPreviewsResponse): boolean {
+  return (
+    hasImages(data.occasion) &&
+    hasImages(data.vibe) &&
+    hasImages(data.fit) &&
+    hasImages(data.season)
+  );
+}
+
+function mergeMissingSections(
+  cached: TagPreviewsResponse,
+  fresh: TagPreviewsResponse
+): TagPreviewsResponse {
+  return {
+    occasion: hasImages(cached.occasion) ? cached.occasion : fresh.occasion,
+    vibe: hasImages(cached.vibe) ? cached.vibe : fresh.vibe,
+    fit: hasImages(cached.fit) ? cached.fit : fresh.fit,
+    season: hasImages(cached.season) ? cached.season : fresh.season,
+  };
+}
+
+export function HomePage() {
+  const router = useRouter();
+  const [cards, setCards] = useState<ExploreCardConfig[]>(
+    EXPLORE_CARDS.map((card) => ({ ...card, items: [] }))
+  );
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadTagPreviews = async () => {
+      const cachedPayload = readTagPreviewCache();
+      const hasValidCache =
+        Boolean(cachedPayload) && (cachedPayload?.expiresAt ?? 0) > Date.now();
+
+      if (hasValidCache && cachedPayload) {
+        setCards(mergeWithApiData(EXPLORE_CARDS, cachedPayload.data));
+
+        if (hasAllSectionsWithImages(cachedPayload.data)) {
+          setIsLoading(false);
+          return;
+        }
+      }
+
+      try {
+        const freshData = await fetchTagPreviews(20);
+        const nextData =
+          hasValidCache && cachedPayload
+            ? mergeMissingSections(cachedPayload.data, freshData)
+            : freshData;
+
+        writeTagPreviewCache(nextData);
+        if (!isMounted) return;
+        setCards(mergeWithApiData(EXPLORE_CARDS, nextData));
+      } catch {
+        if (!isMounted) return;
+        if (!hasValidCache) {
+          setCards(mergeWithApiData(EXPLORE_CARDS, getEmptyTagPreviewData()));
+        }
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
+    loadTagPreviews();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const handleSelect = (queryKey: "scene" | "vibe" | "search", value: string) => {
+    router.push(`/products?${queryKey}=${encodeURIComponent(value)}`);
+  };
+
+  const handleProductClick = (productId: string) => {
+    router.push(`/products/${productId}`);
   };
 
   return (
     <div className="min-h-screen bg-white text-black flex flex-col max-w-md md:max-w-7xl mx-auto">
-      {/* Desktop top nav */}
       <DesktopNav />
-      {/* Mobile header */}
       <Header />
 
-      {/* Content */}
       <div className="flex-1 pb-24 md:pb-12 overflow-y-auto">
-        {/* Featured Carousel */}
-        <div className="pt-2 md:pt-8 pb-6 md:pb-10">
-          <h2 className="text-center mb-4 md:mb-6 px-6">Spotlight</h2>
-
-          <div className="relative">
-            {/* Carousel — constrained on mobile, wider on desktop */}
-            <div className="px-16 md:px-0 md:max-w-2xl md:mx-auto lg:max-w-3xl">
-              <Carousel
-                setApi={setCarouselApi}
-                opts={{ align: "center", loop: true }}
-              >
-                <CarouselContent>
-                  {featuredProducts.map((product, index) => (
-                    <CarouselItem key={product.productId}>
-                      <div
-                        className="aspect-square md:aspect-[4/3] bg-[#E5E5E5] overflow-hidden cursor-pointer transition-all active:opacity-90 md:hover:shadow-xl md:hover:scale-[1.01] duration-300 rounded-[8px] shadow-[0px_2px_4px_0px_rgba(14,31,53,0.12)]"
-                        onClick={() => {
-                          setCarouselPosition(index);
-                          router.push('/products/' + product.productId);
-                        }}
-                      >
-                        <ImageWithFallback
-                          src={product.productImageUrl}
-                          alt={product.name}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                      <p className="text-center text-sm md:text-base text-gray-700 mt-4 uppercase tracking-wide">
-                        {product.name}
-                      </p>
-                    </CarouselItem>
-                  ))}
-                  {featuredProducts.length === 0 && (
-                    <CarouselItem>
-                      <div className="aspect-square md:aspect-[4/3] bg-gray-100 flex items-center justify-center rounded-[8px]">
-                        <p className="text-gray-400">Loading featured...</p>
-                      </div>
-                    </CarouselItem>
-                  )}
-                </CarouselContent>
-              </Carousel>
-            </div>
-
-            {/* Navigation Chevrons */}
-            <button
-              onClick={() => carouselApi?.scrollPrev()}
-              className="absolute left-[16.5px] md:left-4 lg:left-[calc(50%-26rem)] top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 border border-gray-300 rounded-full flex items-center justify-center p-px active:bg-gray-100 hover:bg-gray-100 transition-colors bg-white shadow-[0px_1px_2px_0px_rgba(14,31,53,0.08)]"
-              aria-label="Previous slide"
-            >
-              <ChevronLeft className="w-4 h-4 md:w-5 md:h-5 text-black" />
-            </button>
-            <button
-              onClick={() => carouselApi?.scrollNext()}
-              className="absolute right-[16.5px] md:right-4 lg:right-[calc(50%-26rem)] top-1/2 -translate-y-1/2 w-8 h-8 md:w-10 md:h-10 border border-gray-300 rounded-full flex items-center justify-center p-px active:bg-gray-100 hover:bg-gray-100 transition-colors bg-white shadow-[0px_1px_2px_0px_rgba(14,31,53,0.08)]"
-              aria-label="Next slide"
-            >
-              <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-black" />
-            </button>
-          </div>
-
-          {/* Carousel Dots */}
-          <div className="flex justify-center gap-1.5 mt-6">
-            {Array.from({ length: featuredProducts.length || 5 }).map((_, index) => (
-              <button
-                key={index}
-                onClick={() => carouselApi?.scrollTo(index)}
-                className={`w-2 h-2 rounded-full transition-all ${currentSlide === index ? "bg-black" : "bg-gray-300"}`}
-                aria-label={`Go to slide ${index + 1}`}
-              />
-            ))}
-          </div>
+        <div className="px-6 pt-8 pb-5 md:pt-10">
+          <p className="mb-2 text-[10px] uppercase tracking-[0.24em] text-gray-500">Curated Discover</p>
+          <h1 className="text-3xl md:text-4xl leading-[0.95]" style={{ letterSpacing: "-0.03em", fontWeight: 320 }}>
+            Find your look
+          </h1>
+          <p className="mt-2 text-sm text-gray-500">Pick a mood. Swipe through editorial aesthetics.</p>
         </div>
 
-        {/* Curations */}
-        <div className="py-6 md:py-10">
-          <GradientDivider className="mb-8" />
-          <div className="px-6 md:px-8 lg:px-12">
-            <h2 className="mb-2 text-center">Curations</h2>
-            <p className="text-xs text-gray-500 text-center mb-6 md:mb-8" style={{ fontStyle: 'italic' }}>
-              curated outfits from your fav homegrown brands
-            </p>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 sm:gap-x-6 lg:gap-x-8 gap-y-6 lg:gap-y-8">
-              {collections.map((collection) => {
-                const style = getCategoryStyle(collection.name, collection.items.length > 0 ? collection.items[0].productImageUrl : undefined);
-                return (
-                  <div
-                    key={collection.id}
-                    className="cursor-pointer group"
-                    onClick={() => router.push('/products?collection=' + encodeURIComponent(collection.id))}
-                  >
-                    <div className="aspect-square bg-gray-50 border border-gray-200 overflow-hidden relative active:border-gray-300 transition-all duration-300 rounded-[8px] shadow-[0px_1px_3px_0px_rgba(14,31,53,0.08)] md:group-hover:scale-[1.03] md:group-hover:shadow-lg">
-                      <ImageWithFallback
-                        src={style.src}
-                        alt={collection.name}
-                        className={`w-full h-full object-cover ${style.className || ''}`}
-                      />
-                    </div>
-                    <p className="text-gray-700 mt-2 text-center lowercase md:group-hover:text-black transition-colors">
-                      {collection.name}
-                    </p>
-                  </div>
-                );
-              })}
-              {collections.length === 0 && !loading && (
-                <p className="col-span-2 text-center text-gray-400 text-sm py-4">No curations found</p>
-              )}
-            </div>
-          </div>
+        <div className="grid grid-cols-2 gap-4 px-4 md:px-6">
+          {cards.map((card) => (
+            <ExploreCard
+              key={card.title}
+              card={card}
+              onSelect={handleSelect}
+              onProductClick={handleProductClick}
+              isLoading={isLoading}
+            />
+          ))}
         </div>
 
-        {/* Search by Scene */}
-        <div className="py-8 md:py-10">
-          <GradientDivider className="mb-8" />
-          <div className="px-6 md:px-8 lg:px-12">
-            <h2 className="mb-2 text-center">Search by Scene</h2>
-            <p className="text-xs text-gray-500 text-center mb-6 md:mb-8 lowercase">
-              browse looks by occasion
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-6 sm:gap-8 lg:gap-10">
-              {scenes.map((scene, index) => {
-                const style = getCategoryStyle(scene);
-                return (
-                  <div
-                    key={index}
-                    className="flex flex-col items-center cursor-pointer group"
-                    onClick={() => router.push('/products?scene=' + encodeURIComponent(scene))}
-                  >
-                    <div className="w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-full bg-gray-50 border border-gray-200 active:border-gray-300 transition-all duration-300 shadow-[0px_1px_2px_0px_rgba(14,31,53,0.06)] flex items-center justify-center overflow-hidden md:group-hover:scale-110 md:group-hover:shadow-md">
-                      <ImageWithFallback
-                        src={style.src}
-                        alt={scene}
-                        className={`w-full h-full object-cover ${style.className || ''}`}
-                      />
-                    </div>
-                    <p className="text-gray-700 mt-3 text-center md:group-hover:text-black transition-colors">
-                      {scene}
-                    </p>
-                  </div>
-                );
-              })}
-              {scenes.length === 0 && !loading && (
-                <p className="text-gray-400 text-sm">No scenes found</p>
-              )}
-            </div>
-          </div>
+        <div className="px-5 pt-7 md:px-6">
+          <button
+            onClick={() => router.push("/products")}
+            className="w-full rounded-md border border-gray-200 py-3 text-xs uppercase tracking-[0.18em] text-gray-700 transition-colors hover:border-black hover:text-black"
+          >
+            Browse all products
+          </button>
         </div>
-
-        {/* Find Your Vibe */}
-        <div className="py-8 md:py-10">
-          <GradientDivider className="mb-8" />
-          <div className="px-6 md:px-8 lg:px-12">
-            <h2 className="mb-2 text-center">Find Your Vibe</h2>
-            <p className="text-xs text-gray-500 text-center mb-6 md:mb-8 lowercase">
-              browse looks by your style
-            </p>
-
-            <div className="flex flex-wrap justify-center gap-6 sm:gap-8 lg:gap-10">
-              {vibes.map((vibe, index) => {
-                const style = getCategoryStyle(vibe);
-                return (
-                  <div
-                    key={index}
-                    className="flex flex-col items-center cursor-pointer group"
-                    onClick={() => router.push('/products?vibe=' + encodeURIComponent(vibe))}
-                  >
-                    <div className="w-20 h-20 md:w-24 md:h-24 lg:w-28 lg:h-28 rounded-full bg-gray-50 border border-gray-200 active:border-gray-300 transition-all duration-300 shadow-[0px_1px_2px_0px_rgba(14,31,53,0.06)] flex items-center justify-center overflow-hidden md:group-hover:scale-110 md:group-hover:shadow-md">
-                      <ImageWithFallback
-                        src={style.src}
-                        alt={vibe}
-                        className={`w-full h-full object-cover ${style.className || ''}`}
-                      />
-                    </div>
-                    <p className="text-gray-700 mt-3 text-center md:group-hover:text-black transition-colors">
-                      {vibe}
-                    </p>
-                  </div>
-                );
-              })}
-              {vibes.length === 0 && !loading && (
-                <p className="text-gray-400 text-sm">No vibes found</p>
-              )}
-            </div>
-          </div>
-        </div>
+        <div className="h-7" />
       </div>
 
       <BottomNav />

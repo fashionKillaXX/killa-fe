@@ -17,10 +17,8 @@ export function DesktopNav() {
   };
 
   const linkClass = (path: string) =>
-    `text-[13px] uppercase tracking-[0.15em] transition-colors cursor-pointer ${
-      isActive(path)
-        ? "text-black"
-        : "text-gray-400 hover:text-black"
+    `text-sm uppercase tracking-[0.12em] transition-colors focus:outline-none ${
+      isActive(path) ? "text-black font-medium" : "text-gray-400 hover:text-black"
     }`;
 
   return (

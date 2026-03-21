@@ -81,58 +81,57 @@ export function ProfilePage() {
       </div>
 
       {/* Profile Summary */}
-      <div className="px-6 pt-8 pb-8">
-        <div className="flex flex-col items-center">
-          <div className="w-24 h-24 relative overflow-hidden mb-4 rounded-[8px]">
+      <div className="px-6 pt-8 pb-8 border-b border-gray-100">
+        <div className="flex items-center gap-5">
+          {/* Avatar */}
+          <div className="w-16 h-16 flex-shrink-0 relative overflow-hidden rounded-[8px]">
             <ImageWithFallback
               src="https://images.unsplash.com/photo-1687618083947-691b6c4adb4d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxncmFkaWVudCUyMGFic3RyYWN0fGVufDF8fHx8MTc2MTM3ODQ4MXww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
               alt="Profile gradient"
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-4xl text-white">
+              <span className="text-xl font-medium text-white">
                 {isAuthenticated && user?.name
                   ? user.name.substring(0, 2).toUpperCase()
                   : "FE"}
               </span>
             </div>
           </div>
-          <h2 className="text-xl">{isAuthenticated && user?.name ? user.name : "Fashion Enthusiast"}</h2>
 
-          {isAuthenticated && user?.email ? (
-            <div className="flex items-center gap-2 mt-2">
-              <p className="text-sm text-gray-500">{user.email}</p>
-              <button
-                onClick={handleLogout}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                title="Sign out"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
-          ) : null}
+          {/* User Info */}
+          <div className="flex flex-col flex-1 min-w-0">
+            <h2 className="text-base font-medium truncate">
+              {isAuthenticated && user?.name ? user.name : "Fashion Enthusiast"}
+            </h2>
+            {isAuthenticated && user?.email ? (
+              <p className="text-sm text-gray-500 truncate mt-0.5">{user.email}</p>
+            ) : (
+              <p className="text-sm text-gray-400 mt-0.5">Not signed in</p>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Settings Sections */}
-      <div className="py-6 pb-24">
+      <div className="pt-6 pb-24">
         {profileSections.map((section, idx) => (
-          <div key={idx} className="mb-10">
-            <h3 className="text-gray-400 uppercase tracking-widest text-xs px-6 mb-4">
+          <div key={idx} className="mb-8">
+            <h3 className="text-gray-400 uppercase tracking-[0.12em] text-[10px] px-6 mb-2">
               {section.title}
             </h3>
-            <div>
+            <div className="border-t border-gray-100">
               {section.items.map((item, itemIdx) => (
                 <button
                   key={itemIdx}
                   onClick={item.onClick}
-                  className="w-full px-6 py-5 flex items-center justify-between active:bg-gray-100 transition-colors"
+                  className="w-full px-6 py-4 flex items-center justify-between border-b border-gray-100 active:bg-gray-50 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="text-gray-600">{item.icon}</div>
-                    <span>{item.label}</span>
+                    <div className="text-gray-500 flex-shrink-0">{item.icon}</div>
+                    <span className="text-sm">{item.label}</span>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-gray-400" />
+                  <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
                 </button>
               ))}
             </div>

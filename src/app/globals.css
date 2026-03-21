@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://api.fontshare.com/v2/css?f[]=general-sans@400,500,600,700&display=swap');
+@import "tailwindcss";
 
 /* Cirka Font Face Declarations */
 @font-face {
@@ -27,6 +27,16 @@
 }
 
 @custom-variant dark (&:is(.dark *));
+
+
+/* Hide scrollbar while keeping scroll behaviour */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
 
 :root {
   --font-size: 16px;
