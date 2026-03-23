@@ -54,6 +54,13 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
 
 // ── Brands ────────────────────────────────────────────────────────────
 
+export interface BrandPipeline {
+  total_products: number;
+  with_images: number;
+  with_tags: number;
+  with_embeddings: number;
+}
+
 export interface Brand {
   brandId: string;
   name: string;
@@ -62,6 +69,7 @@ export interface Brand {
   brandInstagram: string | null;
   product_count?: number;
   created_at: string;
+  pipeline?: BrandPipeline;
 }
 
 export async function fetchBrands(): Promise<Brand[]> {

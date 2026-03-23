@@ -349,7 +349,7 @@ function BrandsSection({
               <tr>
                 <th className="pb-2 font-medium">Name</th>
                 <th className="pb-2 font-medium">URL</th>
-                <th className="pb-2 font-medium text-right">Products</th>
+                <th className="pb-2 font-medium text-center">Pipeline Status</th>
                 <th className="pb-2 font-medium text-right">Added</th>
                 <th className="pb-2 font-medium text-right">Actions</th>
               </tr>
@@ -372,7 +372,24 @@ function BrandsSection({
                       '—'
                     )}
                   </td>
-                  <td className="py-2 text-right">{b.product_count ?? '—'}</td>
+                  <td className="py-2">
+                    {b.pipeline?.total_products ? (
+                      <div className="flex items-center gap-1.5 justify-center">
+                        <span className="text-xs text-gray-500">{b.pipeline.total_products}</span>
+                        <Badge variant={b.pipeline.with_images > 0 ? 'default' : 'outline'} className={`text-[10px] px-1.5 py-0 ${b.pipeline.with_images > 0 ? 'bg-blue-100 text-blue-700 hover:bg-blue-100' : ''}`}>
+                          IMG {b.pipeline.with_images}/{b.pipeline.total_products}
+                        </Badge>
+                        <Badge variant={b.pipeline.with_tags > 0 ? 'default' : 'outline'} className={`text-[10px] px-1.5 py-0 ${b.pipeline.with_tags > 0 ? 'bg-amber-100 text-amber-700 hover:bg-amber-100' : ''}`}>
+                          TAG {b.pipeline.with_tags}/{b.pipeline.total_products}
+                        </Badge>
+                        <Badge variant={b.pipeline.with_embeddings > 0 ? 'default' : 'outline'} className={`text-[10px] px-1.5 py-0 ${b.pipeline.with_embeddings > 0 ? 'bg-green-100 text-green-700 hover:bg-green-100' : ''}`}>
+                          EMB {b.pipeline.with_embeddings}/{b.pipeline.total_products}
+                        </Badge>
+                      </div>
+                    ) : (
+                      <span className="text-gray-300 text-xs text-center block">Not scraped</span>
+                    )}
+                  </td>
                   <td className="py-2 text-right text-gray-400">
                     {b.created_at ? timeAgo(b.created_at) : '—'}
                   </td>
