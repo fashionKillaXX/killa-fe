@@ -366,7 +366,7 @@ function BrandsSection({
                         rel="noreferrer"
                         className="hover:underline"
                       >
-                        {new URL(b.url).hostname}
+                        {(() => { try { return new URL(b.url).hostname; } catch { return b.url; } })()}
                       </a>
                     ) : (
                       '—'
