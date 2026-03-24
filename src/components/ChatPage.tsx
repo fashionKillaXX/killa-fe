@@ -473,7 +473,7 @@ export function ChatPage() {
         Your personal<br />style buddy
       </h2>
       <p className="text-sm text-gray-400 max-w-[260px] mb-8 leading-relaxed">
-        Tell me your vibe, occasion, or mood — I&apos;ll build a look from India&apos;s best indie brands.
+        Tell me your vibe, occasion, or mood — I&apos;ll put together a look just for you.
       </p>
       <div className="grid grid-cols-2 gap-2 w-full max-w-sm">
         {SUGGESTIONS.map((s) => (
@@ -622,7 +622,7 @@ export function ChatPage() {
                 </button>
               </div>
               <p className="text-center text-[10px] text-gray-300 mt-2 tracking-wide">
-                Powered by FashionKilla AI · India&apos;s best indie brands
+                Powered by FitCurry AI
               </p>
             </div>
           </div>
