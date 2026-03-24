@@ -47,12 +47,7 @@ export function Onboarding() {
 
   const handleAgeNext = (age: string) => {
     updateAge(age);
-    setCurrentStep("brands");
-  };
-
-  const handleBrandsNext = (brands: string[]) => {
-    updateBrands(brands);
-    setCurrentStep("bodyType");
+    setCurrentStep("bodyType"); // Skip brands — learned organically from saves/likes
   };
 
   const handleBodyTypeNext = (bodyType: string) => {
@@ -100,7 +95,7 @@ export function Onboarding() {
       {currentStep === "bodyType" && (
         <BodyTypeStep
           onNext={handleBodyTypeNext}
-          onBack={() => setCurrentStep("brands")}
+          onBack={() => setCurrentStep("age")}
           initialValue={onboardingData.bodyType}
           gender={onboardingData.gender}
         />
