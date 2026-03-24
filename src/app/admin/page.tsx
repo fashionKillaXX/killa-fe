@@ -583,6 +583,7 @@ function JobsSection({
                     >
                       {job.status}
                     </Badge>
+                    <span className="text-[10px] text-gray-400 font-mono">{job.jobId.slice(0, 8)}</span>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     {(job.status === 'running' || job.status === 'pending') && (
@@ -624,7 +625,12 @@ function JobsSection({
                       </div>
                     )}
                     <pre className="max-h-64 overflow-auto rounded bg-gray-900 p-3 text-xs text-green-400">
-                      {jobLogs[job.jobId] || 'Loading...'}
+                      {(() => {
+                        const raw = jobLogs[job.jobId] || 'Waiting for logs...';
+                        const lines = raw.split('\n');
+                        if (lines.length <= 20) return raw;
+                        return `... (${lines.length - 15} earlier lines hidden)\n` + lines.slice(-15).join('\n');
+                      })()}
                     </pre>
                   </div>
                 )}
