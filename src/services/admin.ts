@@ -158,3 +158,12 @@ export async function createJob(
   if (!data.success && !data.jobId) throw new Error(data.error || 'Failed to create job');
   return data.jobId;
 }
+
+export async function cancelJob(jobId: string): Promise<void> {
+  const res = await fetch(`${BACKEND_URL}/api/admin/jobs/${jobId}/cancel/`, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  if (!data.success && !data.cancelled) throw new Error(data.error || 'Failed to cancel job');
+}

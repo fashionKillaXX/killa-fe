@@ -10,6 +10,7 @@ import {
   fetchJobs,
   fetchJobDetail,
   createJob,
+  cancelJob,
   type Brand,
   type Job,
   type JobType,
@@ -584,6 +585,24 @@ function JobsSection({
                     </Badge>
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-400">
+                    {(job.status === 'running' || job.status === 'pending') && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 h-6 px-2 text-xs"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            await cancelJob(job.jobId);
+                            onRefresh();
+                          } catch (err: any) {
+                            alert(err.message);
+                          }
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    )}
                     <span>{timeAgo(job.created_at)}</span>
                     {expandedJob === job.jobId ? (
                       <ChevronUp className="h-4 w-4" />
