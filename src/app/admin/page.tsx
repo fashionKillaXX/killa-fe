@@ -51,6 +51,7 @@ const JOB_TYPE_LABELS: Record<JobType, string> = {
   image_enrichment: 'Image Enrichment',
   scraping_pipeline: 'Full Scrape Pipeline',
   embedding_generation: 'Generate Embeddings',
+  full_pipeline_all: '🚀 Full Pipeline (ALL)',
 };
 
 const STATUS_COLORS: Record<string, string> = {
@@ -521,8 +522,9 @@ function JobsSection({
   };
 
   const jobActions: { type: JobType; desc: string }[] = [
+    { type: 'full_pipeline_all', desc: 'Scrape → Tag → Embed ALL brands (end-to-end)' },
     { type: 'scraping_pipeline', desc: 'Scrape + enrich images for all brands' },
-    { type: 'llm_analysis', desc: 'GPT-4o tag analysis on untagged products' },
+    { type: 'llm_analysis', desc: 'GPT-4o tag analysis on untagged products (8 parallel workers)' },
     { type: 'embedding_generation', desc: 'Generate search embeddings for tagged products' },
   ];
 

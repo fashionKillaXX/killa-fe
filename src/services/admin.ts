@@ -112,7 +112,8 @@ export type JobType =
   | 'llm_analysis'
   | 'image_enrichment'
   | 'scraping_pipeline'
-  | 'embedding_generation';
+  | 'embedding_generation'
+  | 'full_pipeline_all';
 
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
