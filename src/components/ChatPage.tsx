@@ -431,7 +431,12 @@ export function ChatPage() {
         }
         setMessages((prev) => {
           const updated = [...prev];
-          updated[updated.length - 1] = { role: "assistant", blocks: [...streamingBlocksRef.current] };
+          // Include in-progress outfit so products render as they stream in
+          const blocks = [...streamingBlocksRef.current];
+          if (currentOutfitRef.current && currentOutfitRef.current.products.length > 0) {
+            blocks.push({ ...currentOutfitRef.current });
+          }
+          updated[updated.length - 1] = { role: "assistant", blocks };
           return updated;
         });
       }, controller.signal);
