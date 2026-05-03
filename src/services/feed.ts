@@ -189,3 +189,22 @@ export async function getBrainRefine(): Promise<{
   const r = await api.get("/api/feed/refine", { headers: brainHeaders() });
   return r.data;
 }
+
+/**
+ * Backfill: when an anon user logs in, transfer their brain state to the new
+ * user row so saved outfits / centroid / event count carry over.
+ * Requires Bearer token (the now-logged-in user). No-op if no anon session.
+ */
+export async function upgradeBrainSession(anonSessionId: string): Promise<{
+  success: boolean;
+  upgraded: boolean;
+  total_confidence?: number;
+  active_strategy?: string;
+  saved_outfits_count?: number;
+}> {
+  const r = await api.post(
+    "/api/feed/upgrade-session",
+    { anon_session_id: anonSessionId },
+  );
+  return r.data;
+}

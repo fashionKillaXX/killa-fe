@@ -12,6 +12,7 @@ import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import { chatWithStylist, type OutfitCard } from "@/services/feed";
 import { useStylistDrawer } from "@/components/magazine/StylistDrawerContext";
+import { useBrainSession } from "@/contexts/BrainSessionContext";
 import { toast } from "sonner";
 
 interface Turn {
@@ -24,6 +25,7 @@ interface Turn {
 
 export default function StylistDrawer() {
   const { open, setOpen, pageContext } = useStylistDrawer();
+  const { requireLogin } = useBrainSession();
   const [input, setInput] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [thinking, setThinking] = useState(false);
@@ -33,10 +35,7 @@ export default function StylistDrawer() {
     if (open) setTimeout(() => inputRef.current?.focus(), 80);
   }, [open]);
 
-  const send = async (msg: string) => {
-    if (!msg.trim() || thinking) return;
-    const userMsg = msg.trim();
-    setInput("");
+  const _doSend = async (userMsg: string) => {
     setThinking(true);
     setTurns((prev) => [...prev, { user: userMsg, assistant: "" }]);
     try {
@@ -53,6 +52,12 @@ export default function StylistDrawer() {
         return updated;
       });
     } catch (e: any) {
+      // 401 with auth_required → reopen the gate (very rare since we gate up-front)
+      if (e?.response?.status === 401 && e?.response?.data?.auth_required) {
+        setTurns((prev) => prev.slice(0, -1));
+        requireLogin(() => _doSend(userMsg), "chat");
+        return;
+      }
       setTurns((prev) => {
         const updated = [...prev];
         updated[updated.length - 1] = {
@@ -66,6 +71,15 @@ export default function StylistDrawer() {
     } finally {
       setThinking(false);
     }
+  };
+
+  const send = (msg: string) => {
+    if (!msg.trim() || thinking) return;
+    const userMsg = msg.trim();
+    setInput("");
+    // Chat requires login. requireLogin replays the action after sign-in,
+    // so the user's intended message is sent for them.
+    requireLogin(() => _doSend(userMsg), "chat");
   };
 
   return (
