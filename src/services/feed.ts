@@ -50,6 +50,7 @@ export interface OutfitCard {
   cluster: string;
   trend_velocity: number;
   is_exploration: boolean;
+  is_saved?: boolean;
   image_url?: string | null;
   constituent_sku_previews: PreviewSku[];
 }
@@ -151,7 +152,16 @@ export async function getOutfit(outfitId: string): Promise<OutfitDetail> {
 }
 
 export async function emitBrainEvent(payload: {
-  event_type: "save_outfit" | "dismiss_outfit" | "save_sku" | "dismiss_sku" | "expand" | "long_dwell" | "share";
+  event_type:
+    | "save_outfit"
+    | "unsave_outfit"
+    | "dismiss_outfit"
+    | "save_sku"
+    | "unsave_sku"
+    | "dismiss_sku"
+    | "expand"
+    | "long_dwell"
+    | "share";
   target_type: "outfit" | "sku";
   target_id: string;
   context?: Record<string, any>;

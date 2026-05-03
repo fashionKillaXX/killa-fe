@@ -27,16 +27,19 @@ function colorOf(name?: string | null): string {
 }
 
 interface Props {
-  outfit: OutfitCardType;
+  outfit: OutfitCardType & { is_saved?: boolean };
   variant?: "hero" | "standard" | "compact";
   index?: number;
   onSaved?: (outfit: OutfitCardType) => void;
+  onUnsaved?: (outfit: OutfitCardType) => void;
 }
 
-export default function OutfitCard({ outfit, variant = "standard", index = 0, onSaved }: Props) {
+export default function OutfitCard({ outfit, variant = "standard", index = 0, onSaved, onUnsaved }: Props) {
   const { requireLogin } = useBrainSession();
   const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  // Initial saved state comes from the backend (`outfit.is_saved`); local state
+  // tracks toggles after that.
+  const [saved, setSaved] = useState<boolean>(Boolean(outfit.is_saved));
   const previewSkus = outfit.constituent_sku_previews ?? [];
   const archetypeLabel = (outfit.cluster || "").replace(/_/g, " ");
   const aspectClass = variant === "hero" ? "aspect-[4/5]" : "aspect-[3/4]";
@@ -44,7 +47,30 @@ export default function OutfitCard({ outfit, variant = "standard", index = 0, on
   const handleSave = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (saved || saving) return;
+    if (saving) return;
+    if (saved) {
+      // Toggle off — unsave
+      requireLogin(async () => {
+        try {
+          setSaving(true);
+          await emitBrainEvent({
+            event_type: "unsave_outfit",
+            target_type: "outfit",
+            target_id: outfit.outfit_id,
+            context: { position: index },
+          });
+          setSaved(false);
+          toast.success("Removed from saved");
+          onUnsaved?.(outfit);
+        } catch (err: any) {
+          const msg = err?.response?.data?.error || "Couldn't unsave";
+          toast.error(msg);
+        } finally {
+          setSaving(false);
+        }
+      });
+      return;
+    }
     requireLogin(async () => {
       try {
         setSaving(true);
@@ -129,16 +155,20 @@ export default function OutfitCard({ outfit, variant = "standard", index = 0, on
       <div className="flex gap-2 pt-2">
         <button
           onClick={handleSave}
-          disabled={saved || saving}
-          className="text-[11px] uppercase tracking-wider px-3 py-1.5 transition-colors disabled:opacity-50"
+          disabled={saving}
+          className="group/save text-[11px] uppercase tracking-wider px-3 py-1.5 transition-colors disabled:opacity-50"
           style={{
             border: "1px solid rgba(26,24,21,0.2)",
             color: saved ? "var(--muted-fg)" : "var(--ink)",
-            background: saved ? "transparent" : "transparent",
             fontFamily: "'General Sans', sans-serif",
           }}
         >
-          {saved ? "✓ Saved" : saving ? "Saving…" : "Save"}
+          {saving ? "…" : saved ? (
+            <>
+              <span className="group-hover/save:hidden">✓ Saved</span>
+              <span className="hidden group-hover/save:inline">Unsave</span>
+            </>
+          ) : "Save"}
         </button>
       </div>
     </article>

@@ -80,60 +80,27 @@ export default function SavedMagazine() {
 
         {data && data.saved_outfits.length > 0 && (
           <section className="mt-12">
-            <h2
-              className="mb-6"
-              style={{ fontFamily: "'Cirka', serif", fontWeight: 300, fontSize: "1.875rem" }}
-            >
-              Outfits{" "}
-              <span className="text-sm ml-2" style={{ color: "var(--muted-fg)" }}>
-                ({data.saved_outfits.length})
-              </span>
-            </h2>
             <div className="grid grid-cols-12 gap-x-6 gap-y-12">
               {data.saved_outfits.map((card: OutfitCard, i) => (
                 <div key={card.outfit_id} className="col-span-12 md:col-span-6 lg:col-span-4">
-                  <OutfitCardComp outfit={card} variant="compact" index={i} />
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {data && data.saved_skus.length > 0 && (
-          <section className="mt-16 border-t pt-10" style={{ borderColor: "rgba(26,24,21,0.1)" }}>
-            <h2
-              className="mb-6"
-              style={{ fontFamily: "'Cirka', serif", fontWeight: 300, fontSize: "1.875rem" }}
-            >
-              Pieces{" "}
-              <span className="text-sm ml-2" style={{ color: "var(--muted-fg)" }}>
-                ({data.saved_skus.length})
-              </span>
-            </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-10">
-              {data.saved_skus.map((sku: any) => (
-                <div key={sku.product_id} className="group">
-                  <div className="aspect-[3/4] relative overflow-hidden" style={{ background: "var(--sand)" }}>
-                    {sku.image_url ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img
-                        src={sku.image_url}
-                        alt={sku.title}
-                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="w-full h-full" style={{ background: "var(--sand)" }} />
-                    )}
-                  </div>
-                  <p
-                    className="mt-3 leading-tight line-clamp-2"
-                    style={{ fontFamily: "'Cirka', serif", fontWeight: 300, color: "var(--ink)" }}
-                  >
-                    {sku.title}
-                  </p>
-                  <p className="text-sm mt-1" style={{ color: "var(--ink)" }}>
-                    ₹{(sku.price_inr || 0).toLocaleString("en-IN")}
-                  </p>
+                  <OutfitCardComp
+                    outfit={{ ...card, is_saved: true }}
+                    variant="compact"
+                    index={i}
+                    onUnsaved={() => {
+                      // Drop locally without a refetch — feels snappier.
+                      setData((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              saved_outfits: prev.saved_outfits.filter(
+                                (o) => o.outfit_id !== card.outfit_id,
+                              ),
+                            }
+                          : prev,
+                      );
+                    }}
+                  />
                 </div>
               ))}
             </div>
