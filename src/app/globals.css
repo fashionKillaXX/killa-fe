@@ -44,6 +44,13 @@
   --text-lg: 18px;
   --text-base: 16px;
   --text-sm: 14px;
+  /* ---- Phase 1 magazine editorial palette ---- */
+  --cream: #F5F0E8;
+  --sand: #EBE0CC;
+  --ink: #1A1815;
+  --terracotta: #B8462C;
+  --terracotta-dark: #8C3A23;
+  --muted-fg: #8E806C;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;

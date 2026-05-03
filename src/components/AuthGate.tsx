@@ -12,9 +12,14 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const pathname = usePathname();
 
-  // Allow OAuth callback and survey pages through without auth
-  const publicPaths = ["/auth/google/callback", "/survey"];
-  const isPublicPage = publicPaths.some((p) => pathname.startsWith(p));
+  // Allow OAuth callback, survey, and the public magazine routes through without auth.
+  // The magazine feed (/, /outfit/*, /anchor/*) is open to anonymous browsers;
+  // save / save_to_collection actions are gated by BrainSessionContext.requireLogin().
+  const publicPathsPrefix = ["/auth/google/callback", "/survey", "/outfit/", "/anchor/"];
+  const publicExact = ["/"];
+  const isPublicPage =
+    publicExact.includes(pathname) ||
+    publicPathsPrefix.some((p) => pathname.startsWith(p));
 
   if (isPublicPage) {
     return <>{children}</>;
