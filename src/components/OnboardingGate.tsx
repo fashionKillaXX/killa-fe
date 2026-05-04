@@ -20,11 +20,17 @@ export function OnboardingGate({ children }: { children: React.ReactNode }) {
     }
   }, [isAuthenticated, isAuthLoading, loadOnboardingDataFromBackend]);
 
-  // Redirect to onboarding if not complete
+  // Redirect to onboarding if not complete — but never interrupt the public
+  // magazine routes (homepage, outfit detail, anchor mode). Browse stays open
+  // even while onboarding is pending.
   useEffect(() => {
     if (!isAuthLoading && !isOnboardingLoading && isAuthenticated && !isOnboardingComplete) {
-      const skipPaths = ['/onboarding', '/auth/google/callback', '/admin'];
-      if (!skipPaths.includes(pathname)) {
+      const skipExact = ['/onboarding', '/auth/google/callback', '/admin', '/'];
+      const skipPrefixes = ['/outfit/', '/anchor/'];
+      const skip =
+        skipExact.includes(pathname) ||
+        skipPrefixes.some((p) => pathname.startsWith(p));
+      if (!skip) {
         router.push('/onboarding');
       }
     }
