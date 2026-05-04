@@ -139,7 +139,21 @@ export default function OutfitCard({ outfit, variant = "standard", index = 0, on
           >
             {outfit.title}
           </h3>
-          <p className="mt-2 text-xs line-clamp-2" style={{ color: "var(--muted-fg)" }}>
+          {outfit.story && (
+            <p
+              className="mt-1 italic line-clamp-2"
+              style={{
+                fontFamily: "'Cirka', serif",
+                fontWeight: 300,
+                fontSize: variant === "hero" ? "1rem" : "0.875rem",
+                color: "var(--muted-fg)",
+                lineHeight: 1.35,
+              }}
+            >
+              {outfit.story}
+            </p>
+          )}
+          <p className="mt-1.5 text-[11px] line-clamp-1" style={{ color: "var(--muted-fg)", opacity: 0.7 }}>
             {previewSkus.slice(0, 3).map((s) => s.title).filter(Boolean).join(" · ")}
           </p>
           <div className="mt-2 flex items-baseline gap-3">
