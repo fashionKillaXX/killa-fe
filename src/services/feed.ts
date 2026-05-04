@@ -43,11 +43,13 @@ export interface OutfitCard {
   outfit_id: string;
   title: string;
   description?: string;
+  story?: string;
   aesthetic: string[];
   occasion: string[];
   total_price_inr: number;
   n_items: number;
   cluster: string;
+  cluster_label?: string;
   trend_velocity: number;
   is_exploration: boolean;
   is_saved?: boolean;

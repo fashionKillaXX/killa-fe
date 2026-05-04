@@ -41,7 +41,7 @@ export default function OutfitCard({ outfit, variant = "standard", index = 0, on
   // tracks toggles after that.
   const [saved, setSaved] = useState<boolean>(Boolean(outfit.is_saved));
   const previewSkus = outfit.constituent_sku_previews ?? [];
-  const archetypeLabel = (outfit.cluster || "").replace(/_/g, " ");
+  const archetypeLabel = outfit.cluster_label || (outfit.cluster || "").replace(/_/g, " ");
   const aspectClass = variant === "hero" ? "aspect-[4/5]" : "aspect-[3/4]";
 
   const handleSave = (e: React.MouseEvent) => {
