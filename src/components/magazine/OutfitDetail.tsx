@@ -55,7 +55,7 @@ function sortSkusByEditorialRole(skus: any[]): any[] {
 
 export default function OutfitDetail({ outfitId }: { outfitId: string }) {
   const { isReady, requireLogin } = useBrainSession();
-  const { setPageContext } = useStylistDrawer();
+  const { setPageContext, setOpen } = useStylistDrawer();
   const [outfit, setOutfit] = useState<OutfitDetailType | null>(null);
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -200,6 +200,24 @@ export default function OutfitDetail({ outfitId }: { outfitId: string }) {
             >
               More like this →
             </Link>
+            <button
+              onClick={() => {
+                setPageContext({
+                  focused_outfit_id: outfit.outfit_id,
+                  visible_outfit_ids: [outfit.outfit_id],
+                  current_view: "anchor_mode",
+                });
+                setOpen(true);
+              }}
+              className="px-5 py-2.5 text-xs uppercase tracking-wider transition-opacity hover:opacity-80"
+              style={{
+                background: "var(--terracotta)",
+                color: "var(--cream)",
+                fontFamily: "'General Sans', sans-serif",
+              }}
+            >
+              Talk to this outfit
+            </button>
           </div>
         </section>
 
