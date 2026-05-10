@@ -45,27 +45,18 @@ export default function Magazine({ anchorId }: Props) {
     if (isReady) fetchFeed();
   }, [isReady, fetchFeed]);
 
-  // Track focused outfit so the stylist drawer can use it as page_context
+  // Keep `visible_outfit_ids` in page_context (useful for prompts like
+  // "more like the last one"), but DO NOT auto-stamp `focused_outfit_id`
+  // on scroll — that turned every chat into a refine-on-the-last-visible-
+  // outfit instead of a fresh compose. The chat anchor is set ONLY by
+  // explicit user click ("Talk to this outfit" on a card or detail page).
   useEffect(() => {
     if (!feed?.cards.length) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-        if (visible[0]) {
-          const oid = visible[0].target.getAttribute("data-outfit-id") || undefined;
-          setPageContext({
-            focused_outfit_id: oid,
-            visible_outfit_ids: feed.cards.map((c) => c.outfit_id),
-            current_view: anchorId ? "anchor_mode" : "feed",
-          });
-        }
-      },
-      { threshold: [0.3, 0.5, 0.8] },
-    );
-    document.querySelectorAll("[data-outfit-id]").forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
+    setPageContext({
+      focused_outfit_id: null,
+      visible_outfit_ids: feed.cards.map((c) => c.outfit_id),
+      current_view: anchorId ? "anchor_mode" : "feed",
+    });
   }, [feed, anchorId, setPageContext]);
 
   if (!isReady || loading || !feed) {

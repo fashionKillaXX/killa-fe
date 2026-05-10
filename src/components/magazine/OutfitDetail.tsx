@@ -65,10 +65,13 @@ export default function OutfitDetail({ outfitId }: { outfitId: string }) {
     getOutfit(outfitId).then(setOutfit).catch((e) => console.error(e));
   }, [isReady, outfitId]);
 
+  // Don't auto-stamp focused_outfit_id when this page loads. Visiting a detail
+  // page is browsing intent, not "I want to talk to the stylist about this".
+  // The "Talk to this outfit" button below sets the anchor explicitly.
   useEffect(() => {
     if (outfit) {
       setPageContext({
-        focused_outfit_id: outfit.outfit_id,
+        focused_outfit_id: null,
         visible_outfit_ids: [outfit.outfit_id],
         current_view: "outfit_detail",
       });

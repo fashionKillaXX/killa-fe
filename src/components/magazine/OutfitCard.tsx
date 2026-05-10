@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useBrainSession } from "@/contexts/BrainSessionContext";
 import { emitBrainEvent, type OutfitCard as OutfitCardType, type PreviewSku } from "@/services/feed";
+import { useStylistDrawer } from "@/components/magazine/StylistDrawerContext";
 import { toast } from "sonner";
 
 const COLOR_NAME_TO_HEX: Record<string, string> = {
@@ -36,7 +37,19 @@ interface Props {
 
 export default function OutfitCard({ outfit, variant = "standard", index = 0, onSaved, onUnsaved }: Props) {
   const { requireLogin } = useBrainSession();
+  const { setOpen, setPageContext } = useStylistDrawer();
   const [saving, setSaving] = useState(false);
+
+  const handleTalk = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPageContext({
+      focused_outfit_id: outfit.outfit_id,
+      visible_outfit_ids: [outfit.outfit_id],
+      current_view: "anchor_mode",
+    });
+    setOpen(true);
+  };
   // Initial saved state comes from the backend (`outfit.is_saved`); local state
   // tracks toggles after that.
   const [saved, setSaved] = useState<boolean>(Boolean(outfit.is_saved));
@@ -183,6 +196,18 @@ export default function OutfitCard({ outfit, variant = "standard", index = 0, on
               <span className="hidden group-hover/save:inline">Unsave</span>
             </>
           ) : "Save"}
+        </button>
+        <button
+          onClick={handleTalk}
+          className="text-[11px] uppercase tracking-wider px-3 py-1.5 transition-colors"
+          style={{
+            border: "1px solid var(--terracotta)",
+            color: "var(--terracotta)",
+            fontFamily: "'General Sans', sans-serif",
+          }}
+          title="Open the stylist chat anchored on this outfit"
+        >
+          Talk
         </button>
       </div>
     </article>
