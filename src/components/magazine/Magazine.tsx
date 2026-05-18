@@ -224,22 +224,26 @@ export default function Magazine({ anchorId }: Props) {
         ) : null}
       </main>
 
-      {/* Debug strategy badge — bottom-left, faint */}
-      <div
-        className="fixed bottom-4 left-4 px-3 py-2 text-[10px] uppercase tracking-wider z-20 select-none"
-        style={{
-          background: "rgba(26,24,21,0.85)",
-          color: "rgba(245,240,232,0.9)",
-          fontFamily: "'General Sans', monospace",
-        }}
-      >
-        ▸ {meta?.active_strategy ?? "loading"} CONF{" "}
-        {(meta?.user_confidence ?? 0).toFixed(2)}
-        {meta?.candidate_pool ? ` · ${cards.length}/${meta.candidate_pool}` : ""}
-        {meta?.n_familiar_in_page != null && meta.n_familiar_in_page > 0
-          ? ` · ${meta.n_familiar_in_page}↺`
-          : ""}
-      </div>
+      {/* Debug strategy badge — dev-only. Shows active strategy + confidence
+          + cards-loaded/pool + familiar-impressions. Hidden on production
+          because it leaks internal vocab and looks "AI-app"-y to end users. */}
+      {process.env.NODE_ENV === "development" && (
+        <div
+          className="fixed bottom-4 left-4 px-3 py-2 text-[10px] uppercase tracking-wider z-20 select-none"
+          style={{
+            background: "rgba(26,24,21,0.85)",
+            color: "rgba(245,240,232,0.9)",
+            fontFamily: "'General Sans', monospace",
+          }}
+        >
+          ▸ {meta?.active_strategy ?? "loading"} CONF{" "}
+          {(meta?.user_confidence ?? 0).toFixed(2)}
+          {meta?.candidate_pool ? ` · ${cards.length}/${meta.candidate_pool}` : ""}
+          {meta?.n_familiar_in_page != null && meta.n_familiar_in_page > 0
+            ? ` · ${meta.n_familiar_in_page}↺`
+            : ""}
+        </div>
+      )}
     </div>
   );
 }
