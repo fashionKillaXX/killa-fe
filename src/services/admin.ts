@@ -37,6 +37,11 @@ export interface DashboardStats {
   brands_enriched: number;
   user_metrics: {
     total_users: number;
+    // Raw totals — surfaced on the admin dashboard
+    total_saved_products: number;
+    total_collections: number;
+    total_searches: number;
+    // Ratios kept for backward compat
     avg_saved_products: number;
     avg_collections: number;
     avg_items_per_collection: number;
@@ -166,4 +171,137 @@ export async function cancelJob(jobId: string): Promise<void> {
   });
   const data = await res.json();
   if (!data.success && !data.cancelled) throw new Error(data.error || 'Failed to cancel job');
+}
+
+// ── Outfit Review (human-in-the-loop rating) ──────────────────────────
+
+export type OutfitRatingCategory =
+  | 'hero'
+  | 'good'
+  | 'off_vibe'
+  | 'bad_coherence'
+  | 'low_quality'
+  | 'unsure';
+
+export interface OutfitReviewSku {
+  product_id: string;
+  name: string;
+  slot: string;
+  image_url: string | null;
+  price_inr: number;
+  brand: string | null;
+}
+
+/**
+ * Quality flags the anomaly detector applies to an outfit.
+ * Empty list = clean. The detector writes these into
+ * Outfit.metadata.quality_flags and the BE lifts them to a top-level field.
+ *
+ * VIBE_MISMATCH_FOOTWEAR     footwear vibe conflicts with cluster blocklist
+ * MISSING_BOTTOM_BODYSUIT    bodysuit/bralette anchor without a 'bottom'
+ * MISSING_FOOTWEAR           outfit has no footwear slot
+ * THIN_OUTFIT                fewer than 2 constituent SKUs
+ * PRICE_TOO_LOW_FOR_CLUSTER  quiet_luxury/wedding outfit under price floor
+ * PRICE_TOO_HIGH_FOR_CLUSTER cottagecore/clean_girl outfit over price ceiling
+ * PRICE_MISSING              no extractable price data (data-quality flag)
+ */
+export type OutfitQualityFlag =
+  | 'VIBE_MISMATCH_FOOTWEAR'
+  | 'MISSING_BOTTOM_BODYSUIT'
+  | 'MISSING_FOOTWEAR'
+  | 'THIN_OUTFIT'
+  | 'PRICE_TOO_LOW_FOR_CLUSTER'
+  | 'PRICE_TOO_HIGH_FOR_CLUSTER'
+  | 'PRICE_MISSING';
+
+export interface OutfitReviewItem {
+  outfit_id: string;
+  name: string;
+  description: string;
+  tags: Record<string, unknown>;
+  metadata: Record<string, unknown>;
+  /** Anomaly flags surfaced by the detector. Empty array = clean. */
+  quality_flags: OutfitQualityFlag[];
+  quality_checked_at?: string | null;
+  cluster: string;
+  coherence_score: number | null;
+  generated_by: string;
+  hero_image: string | null;
+  skus: OutfitReviewSku[];
+  n_items: number;
+  created_at: string | null;
+  my_rating: {
+    rating: number;
+    category: string;
+    notes: string;
+    updated_at: string;
+  } | null;
+}
+
+export interface OutfitReviewResponse {
+  outfit: OutfitReviewItem | null;
+  pending_total: number;
+  /** Subset of pending_total — outfits the detector has flagged for review. */
+  pending_flagged?: number;
+  message?: string;
+}
+
+export interface OutfitRatingStats {
+  total_outfits: number;
+  total_rated_outfits: number;
+  total_ratings: number;
+  unrated_outfits: number;
+  distribution: Record<string, number>;  // "1" → N, "2" → N, ... "5" → N
+  avg_rating: number | null;
+  my_pending: number | null;
+  my_rated: number | null;
+}
+
+export async function fetchOutfitToReview(
+  adminEmail: string,
+  generatedBy: 'default' | 'chat' | 'any' = 'default',
+): Promise<OutfitReviewResponse> {
+  const params = new URLSearchParams({
+    admin_email: adminEmail,
+    generated_by: generatedBy,
+  });
+  const res = await fetch(`${BACKEND_URL}/api/admin/outfits/next/?${params}`, {
+    headers: authHeaders(),
+  });
+  const data = await res.json();
+  return {
+    outfit: data.outfit,
+    pending_total: data.pending_total,
+    message: data.message,
+  };
+}
+
+export async function rateOutfit(
+  outfitId: string,
+  adminEmail: string,
+  rating: number,
+  category: OutfitRatingCategory | '' = '',
+  notes = '',
+): Promise<{ created: boolean }> {
+  const res = await fetch(`${BACKEND_URL}/api/admin/outfits/${outfitId}/rate/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ admin_email: adminEmail, rating, category, notes }),
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Failed to rate outfit');
+  return { created: !!data.created };
+}
+
+export async function fetchOutfitRatingStats(
+  adminEmail?: string,
+): Promise<OutfitRatingStats> {
+  const params = new URLSearchParams();
+  if (adminEmail) params.set('admin_email', adminEmail);
+  const res = await fetch(
+    `${BACKEND_URL}/api/admin/outfits/stats/?${params}`,
+    { headers: authHeaders() },
+  );
+  const data = await res.json();
+  return data.stats;
 }

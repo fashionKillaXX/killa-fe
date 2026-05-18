@@ -14,7 +14,10 @@ export default function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="antialiased">
+      {/* suppressHydrationWarning silences the false-positive caused by
+          browser extensions (Grammarly, LastPass) injecting data-* attrs
+          on <body> after the server-rendered HTML loads. */}
+      <body className="antialiased" suppressHydrationWarning>
         <Providers>
           {children}
         </Providers>
