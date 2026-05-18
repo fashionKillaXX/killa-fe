@@ -346,10 +346,10 @@ function EmptyStatePrompts({ onPick }: { onPick: (s: string) => void }) {
           letterSpacing: "-0.02em",
         }}
       >
-        Tell me what you want to wear,
+        Where are you headed?
         <br />
         <span className="italic" style={{ color: "var(--muted-fg)" }}>
-          and I'll build you an outfit.
+          I&rsquo;ll dress you for it.
         </span>
       </p>
       <div className="space-y-2">

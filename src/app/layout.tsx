@@ -5,8 +5,8 @@ import { Providers } from "@/components/Providers";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: "FitCurry — Discover Indie Indian Fashion",
-  description: "AI-powered outfit recommendations from 140+ indie Indian brands. Find your style, build your wardrobe.",
+  title: "FitCurry — The Daily.",
+  description: "A daily issue of outfits from 140+ indie Indian labels — Banjaaran, Kalki, Gully Labs, twoextralives and more. A style magazine that builds itself for you.",
 };
 
 export default function RootLayout({
