@@ -53,8 +53,8 @@ export default function SavedMagazine() {
             Saved <span style={{ fontStyle: "italic", color: "var(--terracotta)", fontWeight: 200 }}>looks</span>
           </h1>
           <p className="mt-4 max-w-xl text-sm leading-relaxed" style={{ color: "var(--muted-fg)" }}>
-            Outfits you've saved. Each save also tells the stylist what you like —
-            the feed adapts in the background.
+            Your closet, kept. The more you save, the more the next issue
+            starts to sound like you.
           </p>
         </section>
 
@@ -175,10 +175,10 @@ function EmptyState() {
         className="text-2xl leading-snug"
         style={{ fontFamily: "'Cirka', serif", fontWeight: 300, color: "var(--ink)" }}
       >
-        Nothing saved yet.
+        Empty closet.
       </p>
       <p className="mt-3 text-sm leading-relaxed" style={{ color: "var(--muted-fg)" }}>
-        Tap "Save" on a card or detail page. Saved looks land here, and every save reshapes the feed.
+        Tap save on any look and it lands here. Your saves shape the next issue.
       </p>
       <Link
         href="/"

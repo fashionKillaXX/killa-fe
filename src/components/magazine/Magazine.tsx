@@ -154,17 +154,17 @@ export default function Magazine({ anchorId }: Props) {
                 color: "var(--ink)",
               }}
             >
-              On the Scroll{" "}
+              The{" "}
               <span style={{ fontStyle: "italic", color: "var(--terracotta)", fontWeight: 200 }}>
-                Today
+                Daily.
               </span>
             </h1>
             <p
               className="mt-4 max-w-xl text-sm leading-relaxed"
               style={{ color: "var(--muted-fg)" }}
             >
-              An issue that adapts to you. The first scroll is shaped by who you might be;
-              every save and skip refines what comes next.
+              A new issue every time you open this. Built from labels the algorithm
+              doesn&rsquo;t know about yet &mdash; and increasingly, built for you.
             </p>
           </section>
         )}
@@ -262,7 +262,7 @@ function Masthead({ anchorId }: { anchorId?: string }) {
             className="text-[10px] uppercase tracking-[0.2em] hidden md:inline"
             style={{ color: "var(--muted-fg)" }}
           >
-            fashion intelligence
+            an indie style daily
           </span>
         </Link>
         <nav className="flex items-center gap-5 text-[11px] uppercase tracking-wider" style={{ color: "var(--muted-fg)" }}>
@@ -291,7 +291,7 @@ function LoadingState() {
           fitcurry
         </div>
         <div className="mt-3 text-xs uppercase tracking-[0.2em]" style={{ color: "var(--muted-fg)" }}>
-          tuning the issue<span className="animate-pulse">...</span>
+          pulling the issue<span className="animate-pulse">...</span>
         </div>
       </div>
     </div>
