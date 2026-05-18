@@ -7,13 +7,15 @@
  * - Hero variant for index 0; standard for every 5th; compact for the rest.
  * - Tracks focused outfit via IntersectionObserver and feeds it as
  *   page_context.focused_outfit_id to the stylist drawer.
+ * - Infinite scroll via opaque BE cursor; page 1 always mints a fresh
+ *   shuffle seed so refresh rotates the top of the feed.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useBrainSession } from "@/contexts/BrainSessionContext";
 import {
   getFeed,
-  type FeedResponse,
+  type FeedMetadata,
   type OutfitCard as OutfitCardType,
 } from "@/services/feed";
 import OutfitCard from "@/components/magazine/OutfitCard";
@@ -23,47 +25,100 @@ interface Props {
   anchorId?: string;
 }
 
+const PAGE_SIZE = 12;
+
 export default function Magazine({ anchorId }: Props) {
   const { isReady } = useBrainSession();
   const { setPageContext } = useStylistDrawer();
-  const [feed, setFeed] = useState<FeedResponse | null>(null);
-  const [loading, setLoading] = useState(true);
 
-  const fetchFeed = useCallback(async () => {
-    setLoading(true);
+  const [cards, setCards] = useState<OutfitCardType[]>([]);
+  const [meta, setMeta] = useState<FeedMetadata | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [loadingInitial, setLoadingInitial] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Refresh = drop cards + cursor, fetch page 1 with a new seed.
+  const fetchPage1 = useCallback(async () => {
+    setLoadingInitial(true);
     try {
-      const resp = await getFeed({ k: 12, anchor_id: anchorId });
-      setFeed(resp);
+      const resp = await getFeed({ k: PAGE_SIZE, anchor_id: anchorId });
+      setCards(resp.cards);
+      setMeta(resp.feed_metadata);
+      setCursor(resp.next_cursor);
+      setHasMore(Boolean(resp.next_cursor) && !anchorId);
     } catch (e) {
-      console.error("Magazine feed fetch failed:", e);
+      console.error("Magazine page1 fetch failed:", e);
     } finally {
-      setLoading(false);
+      setLoadingInitial(false);
     }
   }, [anchorId]);
 
+  // Load next page using the BE-issued cursor. De-duplicates by outfit_id so
+  // a refresh during pagination can't double-render a card.
+  const loadingMoreRef = useRef(false);
+  const fetchNextPage = useCallback(async () => {
+    if (loadingMoreRef.current || !cursor || anchorId) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const resp = await getFeed({ k: PAGE_SIZE, cursor });
+      setCards((prev) => {
+        const seen = new Set(prev.map((c) => c.outfit_id));
+        const fresh = resp.cards.filter((c) => !seen.has(c.outfit_id));
+        return [...prev, ...fresh];
+      });
+      setMeta(resp.feed_metadata);
+      setCursor(resp.next_cursor);
+      setHasMore(Boolean(resp.next_cursor));
+    } catch (e) {
+      console.error("Magazine pagination fetch failed:", e);
+    } finally {
+      setLoadingMore(false);
+      loadingMoreRef.current = false;
+    }
+  }, [cursor, anchorId]);
+
   useEffect(() => {
-    if (isReady) fetchFeed();
-  }, [isReady, fetchFeed]);
+    if (isReady) fetchPage1();
+  }, [isReady, fetchPage1]);
+
+  // IntersectionObserver-driven infinite scroll. Watches a sentinel near
+  // the bottom of the grid; when it enters the viewport, fetch the next
+  // page. Disposed/re-armed whenever `cursor` changes so we never miss the
+  // tail of one page or trigger twice.
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore || !cursor) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          fetchNextPage();
+        }
+      },
+      { rootMargin: "600px 0px" },  // pre-fetch when within ~3 viewports
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [cursor, hasMore, fetchNextPage]);
 
   // Keep `visible_outfit_ids` in page_context (useful for prompts like
   // "more like the last one"), but DO NOT auto-stamp `focused_outfit_id`
   // on scroll — that turned every chat into a refine-on-the-last-visible-
-  // outfit instead of a fresh compose. The chat anchor is set ONLY by
-  // explicit user click ("Talk to this outfit" on a card or detail page).
+  // outfit instead of a fresh compose.
   useEffect(() => {
-    if (!feed?.cards.length) return;
+    if (!cards.length) return;
     setPageContext({
       focused_outfit_id: null,
-      visible_outfit_ids: feed.cards.map((c) => c.outfit_id),
+      visible_outfit_ids: cards.map((c) => c.outfit_id),
       current_view: anchorId ? "anchor_mode" : "feed",
     });
-  }, [feed, anchorId, setPageContext]);
+  }, [cards, anchorId, setPageContext]);
 
-  if (!isReady || loading || !feed) {
+  if (!isReady || loadingInitial) {
     return <LoadingState />;
   }
-
-  const cards = feed.cards;
 
   return (
     <div className="min-h-screen pb-32" style={{ background: "var(--cream)", color: "var(--ink)" }}>
@@ -128,12 +183,45 @@ export default function Magazine({ anchorId }: Props) {
                   outfit={card}
                   variant={variant}
                   index={i}
-                  onSaved={fetchFeed}
+                  onSaved={fetchPage1}
                 />
               </div>
             );
           })}
         </section>
+
+        {/* Pagination sentinel + status banner */}
+        {hasMore ? (
+          <div ref={sentinelRef} className="mt-16 mb-8 flex justify-center">
+            {loadingMore ? (
+              <span
+                className="text-xs uppercase tracking-[0.2em]"
+                style={{ color: "var(--muted-fg)" }}
+              >
+                loading more<span className="animate-pulse">...</span>
+              </span>
+            ) : (
+              <span className="text-[10px] uppercase tracking-[0.2em] opacity-50">
+                ↓ scroll for more
+              </span>
+            )}
+          </div>
+        ) : cards.length > 0 ? (
+          <div className="mt-16 mb-8 flex flex-col items-center gap-3">
+            <span
+              className="text-xs uppercase tracking-[0.2em]"
+              style={{ color: "var(--muted-fg)" }}
+            >
+              That's the end of this issue.
+            </span>
+            <button
+              onClick={fetchPage1}
+              className="text-xs uppercase tracking-[0.2em] underline opacity-70 hover:opacity-100"
+            >
+              ↻ Pull a fresh shuffle
+            </button>
+          </div>
+        ) : null}
       </main>
 
       {/* Debug strategy badge — bottom-left, faint */}
@@ -145,8 +233,12 @@ export default function Magazine({ anchorId }: Props) {
           fontFamily: "'General Sans', monospace",
         }}
       >
-        ▸ {feed.feed_metadata.active_strategy} CONF{" "}
-        {feed.feed_metadata.user_confidence.toFixed(2)}
+        ▸ {meta?.active_strategy ?? "loading"} CONF{" "}
+        {(meta?.user_confidence ?? 0).toFixed(2)}
+        {meta?.candidate_pool ? ` · ${cards.length}/${meta.candidate_pool}` : ""}
+        {meta?.n_familiar_in_page != null && meta.n_familiar_in_page > 0
+          ? ` · ${meta.n_familiar_in_page}↺`
+          : ""}
       </div>
     </div>
   );

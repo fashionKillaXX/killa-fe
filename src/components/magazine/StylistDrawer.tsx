@@ -61,10 +61,16 @@ export default function StylistOverlay() {
   const inputRef = useRef<HTMLInputElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Mount + animation lifecycle
+  // Mount + animation lifecycle + fresh-chat-on-open.
+  // Every open clears the prior conversation. The Stylist is meant to be a
+  // single focused exchange about the current anchor; if the user wants to
+  // continue a thread, they should use Refine within the conversation, not
+  // reopen the overlay.
   useEffect(() => {
     if (open) {
       setMounted(true);
+      setTurns([]);
+      setInput("");
       // input focus after the slide-up settles
       const t = setTimeout(() => inputRef.current?.focus(), 320);
       return () => clearTimeout(t);

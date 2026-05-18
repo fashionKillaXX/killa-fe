@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import Link from 'next/link';
 import {
   checkAdminAccess,
   fetchDashboardStats,
@@ -11,10 +12,12 @@ import {
   fetchJobDetail,
   createJob,
   cancelJob,
+  fetchOutfitRatingStats,
   type Brand,
   type Job,
   type JobType,
   type DashboardStats,
+  type OutfitRatingStats,
 } from '@/services/admin';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,6 +45,11 @@ import {
   Clock,
   ChevronDown,
   ChevronUp,
+  Star,
+  Users,
+  Heart,
+  Bookmark,
+  Search,
 } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -84,6 +92,7 @@ function timeAgo(dateStr: string) {
 export default function AdminPage() {
   const [authorized, setAuthorized] = useState<boolean | null>(null);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [outfitStats, setOutfitStats] = useState<OutfitRatingStats | null>(null);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,18 +118,20 @@ export default function AdminPage() {
   // Load data once authorized
   const loadData = useCallback(async () => {
     try {
-      const [s, b, j] = await Promise.all([
+      const [s, b, j, os] = await Promise.all([
         fetchDashboardStats(),
         fetchBrands(),
         fetchJobs(),
+        fetchOutfitRatingStats(authUser?.email || undefined),
       ]);
       setStats(s);
       setBrands(b);
       setJobs(j);
+      setOutfitStats(os);
     } catch (e) {
       console.error('Failed to load admin data', e);
     }
-  }, []);
+  }, [authUser?.email]);
 
   useEffect(() => {
     if (authorized) loadData();
@@ -178,7 +189,7 @@ export default function AdminPage() {
 
       <main className="mx-auto max-w-7xl px-6 py-6">
         {/* Stats Cards */}
-        {stats && <StatsCards stats={stats} />}
+        {stats && <StatsCards stats={stats} outfitStats={outfitStats} />}
 
         {/* Tabs */}
         <Tabs defaultValue="brands" className="mt-6">
@@ -202,15 +213,30 @@ export default function AdminPage() {
 
 // ── Stats Cards ───────────────────────────────────────────────────────
 
-function StatsCards({ stats }: { stats: DashboardStats }) {
-  const cards = [
+function StatsCards({
+  stats,
+  outfitStats,
+}: {
+  stats: DashboardStats;
+  outfitStats: OutfitRatingStats | null;
+}) {
+  // Top row: catalog/product health (4 cards)
+  const productCards = [
     { label: 'Brands', value: stats.total_brands, icon: Package },
     { label: 'Products', value: stats.total_products, icon: Tags },
     { label: 'Tagged', value: stats.products_with_tags, icon: Sparkles },
     { label: 'Searchable', value: stats.products_with_embeddings, icon: Image },
   ];
 
-  return (
+  // Second row: user-side totals (4 cards) — counts, not averages
+  const userCards = [
+    { label: 'Users', value: stats.user_metrics?.total_users, icon: Users },
+    { label: 'Saved Products', value: stats.user_metrics?.total_saved_products, icon: Heart },
+    { label: 'Collections', value: stats.user_metrics?.total_collections, icon: Bookmark },
+    { label: 'Searches', value: stats.user_metrics?.total_searches, icon: Search },
+  ];
+
+  const renderRow = (cards: typeof productCards) => (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
       {cards.map((c) => (
         <Card key={c.label}>
@@ -225,6 +251,46 @@ function StatsCards({ stats }: { stats: DashboardStats }) {
           </CardContent>
         </Card>
       ))}
+    </div>
+  );
+
+  return (
+    <div className="space-y-4">
+      {renderRow(productCards)}
+      {renderRow(userCards)}
+
+      {/* Outfit review tile — clickable, links to /admin/outfits */}
+      {outfitStats && (
+        <Link href="/admin/outfits" className="block">
+          <Card className="cursor-pointer transition-shadow hover:shadow-md">
+            <CardContent className="flex items-center justify-between p-4">
+              <div className="flex items-center gap-4">
+                <div className="rounded-lg bg-yellow-100 p-2">
+                  <Star className="h-5 w-5 text-yellow-700" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    Outfit Review — human-in-the-loop
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {outfitStats.my_pending ?? outfitStats.unrated_outfits} pending
+                    {' · '}
+                    {outfitStats.my_rated ?? 0} rated by you
+                    {' · '}
+                    {outfitStats.total_ratings} total ratings
+                    {outfitStats.avg_rating != null && (
+                      <> · avg {outfitStats.avg_rating}★</>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right text-xs text-gray-500">
+                Click to review →
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      )}
     </div>
   );
 }

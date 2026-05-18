@@ -62,12 +62,22 @@ export interface FeedMetadata {
   user_confidence: number;
   exploration_share: number;
   archetype_mix: Record<string, number>;
+  /** Total ranked candidates the BE has on hand for this user (after filters). */
+  candidate_pool?: number;
+  /** How many cards in this page the user has already seen at least once. */
+  n_familiar_in_page?: number;
 }
 
 export interface FeedResponse {
   success: boolean;
   cards: OutfitCard[];
   feed_metadata: FeedMetadata;
+  /**
+   * Opaque cursor for fetching the next page. The BE encodes the shuffle
+   * seed + offset inside, so paging produces a coherent sequence (no
+   * dupes, no re-randomisation). Passing `cursor=undefined` to getFeed()
+   * mints a fresh seed — that's the "refresh" / "pull to refresh" path.
+   */
   next_cursor: string | null;
 }
 
@@ -139,10 +149,18 @@ export async function startBrainSession(ctx: SessionContext): Promise<string> {
   return sid;
 }
 
-export async function getFeed(opts: { k?: number; anchor_id?: string } = {}): Promise<FeedResponse> {
+export async function getFeed(opts: {
+  k?: number;
+  anchor_id?: string;
+  /** Pass the previous response's next_cursor to fetch the next page.
+   *  Omit (or pass null/undefined) to mint a fresh shuffle — that's a
+   *  "refresh" — top cards rotate and exploration is re-injected. */
+  cursor?: string | null;
+} = {}): Promise<FeedResponse> {
   const params = new URLSearchParams();
   if (opts.k) params.set("k", String(opts.k));
   if (opts.anchor_id) params.set("anchor_id", opts.anchor_id);
+  if (opts.cursor) params.set("cursor", opts.cursor);
   const qs = params.toString();
   const r = await api.get(`/api/feed/${qs ? `?${qs}` : ""}`, { headers: brainHeaders() });
   return r.data;
