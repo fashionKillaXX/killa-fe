@@ -19,8 +19,10 @@
  */
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { cdnImage } from '@/lib/imageUrl';
 import {
   checkAdminAccess,
   fetchOutfitToReview,
@@ -265,11 +267,12 @@ export default function OutfitReviewPage() {
                   {/* Hero image */}
                   <div className="relative mb-4 aspect-[4/5] overflow-hidden rounded-md bg-gray-100">
                     {outfit.hero_image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={outfit.hero_image}
+                      <Image
+                        src={cdnImage(outfit.hero_image, { width: 1000 })}
                         alt={outfit.name}
-                        className="h-full w-full object-cover"
+                        fill
+                        sizes="(max-width: 768px) 100vw, 60vw"
+                        className="object-cover"
                       />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-gray-400">
@@ -284,11 +287,12 @@ export default function OutfitReviewPage() {
                       <div key={sku.product_id} className="text-xs">
                         <div className="relative aspect-square overflow-hidden rounded bg-gray-100">
                           {sku.image_url ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img
-                              src={sku.image_url}
+                            <Image
+                              src={cdnImage(sku.image_url, { width: 400 })}
                               alt={sku.name}
-                              className="h-full w-full object-cover"
+                              fill
+                              sizes="200px"
+                              className="object-cover"
                             />
                           ) : (
                             <div className="flex h-full w-full items-center justify-center text-gray-400">
