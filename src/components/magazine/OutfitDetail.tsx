@@ -30,6 +30,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useBrainSession } from "@/contexts/BrainSessionContext";
 import { cdnImage } from "@/lib/imageUrl";
+import { formatPriceINR } from "@/lib/format";
 import {
   emitBrainEvent,
   getOutfit,
@@ -176,7 +177,7 @@ export default function OutfitDetail({ outfitId }: { outfitId: string }) {
           )}
           <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
             <span style={{ fontFamily: "'Cirka', serif", fontWeight: 300, fontSize: "1.875rem" }}>
-              ₹{outfit.total_price_inr.toLocaleString("en-IN")}
+              {formatPriceINR(outfit.total_price_inr)}
             </span>
             <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--muted-fg)" }}>
               total · {outfit.constituent_skus.length} pieces
@@ -337,7 +338,7 @@ function PieceFigure({ sku, index, variant }: PieceFigureProps) {
           className="mt-2 text-[11px] uppercase tracking-wider"
           style={{ color: "var(--muted-fg)", fontFamily: "'General Sans', sans-serif" }}
         >
-          ₹{(sku.price_inr || 0).toLocaleString("en-IN")}
+          {formatPriceINR(sku.price_inr)}
         </p>
       </figcaption>
     </figure>

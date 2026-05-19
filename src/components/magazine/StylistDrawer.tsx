@@ -41,6 +41,7 @@ import {
 } from "@/services/feed";
 import { useStylistDrawer } from "@/components/magazine/StylistDrawerContext";
 import { useBrainSession } from "@/contexts/BrainSessionContext";
+import { formatPriceINR } from "@/lib/format";
 import { toast } from "sonner";
 
 interface Turn {
@@ -669,7 +670,7 @@ function ComposedOutfitCard({
                 fontSize: "1.5rem",
               }}
             >
-              ₹{(outfit.total_price_inr ?? 0).toLocaleString("en-IN")}
+              {formatPriceINR(outfit.total_price_inr)}
             </span>
             <span className="text-[11px]" style={{ color: "var(--muted-fg)" }}>
               {outfit.n_items} pieces
