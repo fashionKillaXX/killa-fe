@@ -31,6 +31,13 @@ export interface CdnImageOptions {
   fit?: "fill" | "fit" | "limit";
   /** Aspect ratio in CSS "W:H" form, e.g. "4:5". Only applies when fit=fill. */
   aspectRatio?: string;
+  /**
+   * Force the browser to download instead of render inline. Adds Cloudinary's
+   * fl_attachment flag which sets Content-Disposition: attachment server-side.
+   * Use this for SKU "Download" buttons in the admin library so a click
+   * triggers a save dialog instead of opening the image in a new tab.
+   */
+  download?: boolean;
 }
 
 /**
@@ -54,6 +61,7 @@ export function cdnImage(
   if (opts.aspectRatio && opts.fit === "fill") {
     parts.push(`ar_${opts.aspectRatio}`);
   }
+  if (opts.download) parts.push("fl_attachment");
   // Reasonable defaults if caller didn't pin a size — Cloudinary still
   // re-encodes to WebP which is the bulk of the speedup.
   const transforms = parts.join(",");

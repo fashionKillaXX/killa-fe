@@ -50,6 +50,7 @@ import {
   Heart,
   Bookmark,
   Search,
+  Image as ImageIcon,
 } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────────
@@ -291,6 +292,31 @@ function StatsCards({
           </Card>
         </Link>
       )}
+
+      {/* Outfit library tile — browse + download SKUs for IG content */}
+      <Link href="/admin/library" className="block">
+        <Card className="cursor-pointer transition-shadow hover:shadow-md">
+          <CardContent className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-4">
+              <div className="rounded-lg bg-orange-100 p-2">
+                <ImageIcon className="h-5 w-5 text-orange-700" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  Outfit Library — content assets
+                </p>
+                <p className="text-xs text-gray-500">
+                  Browse outfits, see them in a couple of layouts, download
+                  individual SKU images for your IG posts.
+                </p>
+              </div>
+            </div>
+            <div className="text-right text-xs text-gray-500">
+              Open library →
+            </div>
+          </CardContent>
+        </Card>
+      </Link>
     </div>
   );
 }
