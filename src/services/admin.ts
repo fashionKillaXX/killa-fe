@@ -305,3 +305,87 @@ export async function fetchOutfitRatingStats(
   const data = await res.json();
   return data.stats;
 }
+
+
+// ============================================================================
+// Outfit library — browse + per-SKU direct download
+// ============================================================================
+// Lightweight types: the library never needs the full review payload, just
+// enough to render a thumbnail card + drill into a detail panel where we
+// re-render the outfit in a couple of layouts and link the user to per-SKU
+// downloads served straight from Cloudinary.
+
+export interface OutfitLibrarySummary {
+  id: number;
+  outfit_id: string;
+  name: string;
+  cluster: string;
+  coherence_score: number | null;
+  total_price_inr: number;
+  n_pieces: number;
+  hero_image: string | null;
+  quality_flags: OutfitQualityFlag[];
+}
+
+export interface OutfitLibraryListResponse {
+  outfits: OutfitLibrarySummary[];
+  page: number;
+  page_size: number;
+  total: number;
+  total_pages: number;
+}
+
+export interface OutfitLibraryPiece {
+  sku_id: string;
+  name: string;
+  brand: string | null;
+  slot: string | null;
+  image_url: string | null;
+  url: string | null;
+  price_inr: number;
+}
+
+export interface OutfitLibraryDetail {
+  outfit_id: string;
+  name: string;
+  cluster: string;
+  total_price_inr: number;
+  story: string;
+  pieces: OutfitLibraryPiece[];
+}
+
+export async function fetchOutfitLibrary(opts: {
+  cluster?: string;
+  hasPrice?: boolean;
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<OutfitLibraryListResponse> {
+  const params = new URLSearchParams();
+  if (opts.cluster) params.set('cluster', opts.cluster);
+  if (opts.hasPrice) params.set('has_price', '1');
+  if (opts.page) params.set('page', String(opts.page));
+  if (opts.pageSize) params.set('page_size', String(opts.pageSize));
+  const res = await fetch(
+    `${BACKEND_URL}/api/admin/outfits/library/?${params}`,
+    { headers: authHeaders() },
+  );
+  const data = await res.json();
+  return {
+    outfits: data.outfits,
+    page: data.page,
+    page_size: data.page_size,
+    total: data.total,
+    total_pages: data.total_pages,
+  };
+}
+
+export async function fetchOutfitLibraryDetail(
+  outfitId: string,
+): Promise<OutfitLibraryDetail> {
+  const res = await fetch(
+    `${BACKEND_URL}/api/admin/outfits/library/${outfitId}/`,
+    { headers: authHeaders() },
+  );
+  const data = await res.json();
+  return data.outfit;
+}
