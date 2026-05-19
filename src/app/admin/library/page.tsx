@@ -208,7 +208,7 @@ export default function OutfitLibraryPage() {
             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {outfits.map((o) => (
               <OutfitTile
                 key={o.outfit_id}
@@ -258,7 +258,16 @@ export default function OutfitLibraryPage() {
 }
 
 
-// ── Tile: outfit summary card in the grid ─────────────────────────────────
+// ── Tile: outfit summary card with a collage of its pieces ────────────────
+//
+// One hero image can't tell you what the outfit looks like ("Cottagecore tee"
+// = same shot as 200 others). We render every piece in a collage so the
+// reviewer can actually read the look at a glance. Adaptive grid by count:
+//   1 piece  → full bleed
+//   2 pieces → vertical split
+//   3 pieces → 1 large + 2 stacked (magazine-y asymmetry)
+//   4 pieces → 2×2 grid
+//   5+       → 2×2 grid with a "+N" badge on the last cell
 function OutfitTile({
   outfit,
   onClick,
@@ -271,43 +280,106 @@ function OutfitTile({
       onClick={onClick}
       className="group relative overflow-hidden rounded-md border border-gray-200 bg-white text-left transition-shadow hover:shadow-md focus:outline-none focus:ring-2 focus:ring-gray-400"
     >
-      <div className="relative aspect-[4/5] bg-gray-100">
-        {outfit.hero_image ? (
-          <Image
-            src={cdnImage(outfit.hero_image, { width: 600 })}
-            alt={outfit.name}
-            fill
-            sizes="(max-width: 768px) 50vw, 25vw"
-            className="object-cover"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center text-gray-400">
-            no image
-          </div>
-        )}
+      <div className="relative aspect-square bg-gray-100">
+        <OutfitCollage pieces={outfit.pieces_preview} />
         {outfit.quality_flags.length > 0 && (
-          <span className="absolute right-2 top-2 rounded bg-yellow-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-yellow-800">
+          <span className="absolute right-2 top-2 z-10 rounded bg-yellow-100 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-yellow-800">
             ⚠ {outfit.quality_flags.length}
           </span>
         )}
       </div>
-      <div className="p-2.5">
+      <div className="p-3">
         <div className="flex items-center justify-between gap-2">
           <Badge variant="outline" className="text-[10px]">
             {outfit.cluster.replace(/_/g, ' ')}
           </Badge>
           <span className="text-xs text-gray-500">
-            {outfit.n_pieces} pieces
+            {outfit.n_pieces} pieces · {formatPriceINR(outfit.total_price_inr)}
           </span>
         </div>
         <div className="mt-1.5 line-clamp-1 text-sm font-medium text-gray-900">
           {outfit.name}
         </div>
-        <div className="mt-0.5 text-xs text-gray-600">
-          {formatPriceINR(outfit.total_price_inr)}
-        </div>
       </div>
     </button>
+  );
+}
+
+
+function OutfitCollage({ pieces }: { pieces: OutfitLibrarySummary['pieces_preview'] }) {
+  const usable = pieces.filter((p) => !!p.image_url);
+  if (usable.length === 0) {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center text-sm text-gray-400">
+        no images
+      </div>
+    );
+  }
+  const showCount = Math.min(usable.length, 4);
+  const extra = Math.max(0, pieces.length - 4);
+
+  const cell = (piece: OutfitLibrarySummary['pieces_preview'][number], sizes: string) => (
+    <div className="relative h-full w-full overflow-hidden bg-gray-100">
+      {piece.image_url && (
+        <Image
+          src={cdnImage(piece.image_url, { width: 600 })}
+          alt={piece.slot || 'piece'}
+          fill
+          sizes={sizes}
+          className="object-cover"
+        />
+      )}
+      {piece.slot && (
+        <span className="absolute left-1.5 top-1.5 rounded bg-white/90 px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-gray-700">
+          {piece.slot}
+        </span>
+      )}
+    </div>
+  );
+
+  // 1-piece — full bleed
+  if (showCount === 1) {
+    return <div className="absolute inset-0">{cell(usable[0], '50vw')}</div>;
+  }
+
+  // 2-piece — vertical split
+  if (showCount === 2) {
+    return (
+      <div className="absolute inset-0 grid grid-cols-2 gap-px bg-gray-200">
+        {cell(usable[0], '25vw')}
+        {cell(usable[1], '25vw')}
+      </div>
+    );
+  }
+
+  // 3-piece — 1 large left + 2 stacked right (asymmetric, magazine-y)
+  if (showCount === 3) {
+    return (
+      <div className="absolute inset-0 grid grid-cols-2 gap-px bg-gray-200">
+        {cell(usable[0], '25vw')}
+        <div className="grid grid-rows-2 gap-px bg-gray-200">
+          {cell(usable[1], '25vw')}
+          {cell(usable[2], '25vw')}
+        </div>
+      </div>
+    );
+  }
+
+  // 4+ — 2×2 grid; if more than 4, last cell gets a +N badge
+  const cells = usable.slice(0, 4);
+  return (
+    <div className="absolute inset-0 grid grid-cols-2 grid-rows-2 gap-px bg-gray-200">
+      {cells.map((p, i) => (
+        <div key={i} className="relative">
+          {cell(p, '25vw')}
+          {i === 3 && extra > 0 && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-2xl font-light text-white">
+              +{extra}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
   );
 }
 

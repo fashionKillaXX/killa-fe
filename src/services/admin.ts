@@ -315,6 +315,11 @@ export async function fetchOutfitRatingStats(
 // re-render the outfit in a couple of layouts and link the user to per-SKU
 // downloads served straight from Cloudinary.
 
+export interface OutfitPiecePreview {
+  slot: string | null;
+  image_url: string | null;
+}
+
 export interface OutfitLibrarySummary {
   id: number;
   outfit_id: string;
@@ -323,7 +328,11 @@ export interface OutfitLibrarySummary {
   coherence_score: number | null;
   total_price_inr: number;
   n_pieces: number;
+  /** First piece (top/dress/set) — kept for back-compat. */
   hero_image: string | null;
+  /** Up to 5 piece thumbnails so the card can render the whole outfit as a
+   *  collage. Empty array when the outfit has zero linked pieces. */
+  pieces_preview: OutfitPiecePreview[];
   quality_flags: OutfitQualityFlag[];
 }
 
