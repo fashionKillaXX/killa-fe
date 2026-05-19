@@ -12,6 +12,7 @@ import { useBrainSession } from "@/contexts/BrainSessionContext";
 import { emitBrainEvent, type OutfitCard as OutfitCardType, type PreviewSku } from "@/services/feed";
 import { useStylistDrawer } from "@/components/magazine/StylistDrawerContext";
 import { cdnImage } from "@/lib/imageUrl";
+import { formatPriceINR } from "@/lib/format";
 import { toast } from "sonner";
 
 const COLOR_NAME_TO_HEX: Record<string, string> = {
@@ -173,7 +174,7 @@ export default function OutfitCard({ outfit, variant = "standard", index = 0, on
           </p>
           <div className="mt-2 flex items-baseline gap-3">
             <span className="text-sm" style={{ color: "var(--ink)" }}>
-              ₹{(outfit.total_price_inr ?? 0).toLocaleString("en-IN")}
+              {formatPriceINR(outfit.total_price_inr)}
             </span>
             <span className="text-[11px]" style={{ color: "var(--muted-fg)" }}>
               {outfit.n_items ?? previewSkus.length} pieces
