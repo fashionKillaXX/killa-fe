@@ -6,10 +6,12 @@
  * with adapted classNames for killa-fe's existing color tokens.
  */
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 import { useBrainSession } from "@/contexts/BrainSessionContext";
 import { emitBrainEvent, type OutfitCard as OutfitCardType, type PreviewSku } from "@/services/feed";
 import { useStylistDrawer } from "@/components/magazine/StylistDrawerContext";
+import { cdnImage } from "@/lib/imageUrl";
 import { toast } from "sonner";
 
 const COLOR_NAME_TO_HEX: Record<string, string> = {
@@ -248,16 +250,26 @@ function Composition({ skus }: { skus: PreviewSku[] }) {
 }
 
 function Frame({ sku, className = "" }: { sku: PreviewSku; className?: string }) {
+  // Fallback colour shows under the image while it loads — gives the card
+  // its editorial colour-block feel instead of a flash of white. If the
+  // upstream image 404s, the user still sees the slot label on the colour.
   const fallback = colorOf(sku.color?.[0]);
+  const [errored, setErrored] = useState(false);
+  // Cloudinary fetch-proxied URL (when env var is set) or raw URL otherwise.
+  // width=800 is the max we ever render a card at — Cloudinary serves a
+  // sized WebP and Next.js Image generates the responsive srcset from it.
+  const src = sku.image_url ? cdnImage(sku.image_url, { width: 800 }) : "";
   return (
     <div className={`relative overflow-hidden ${className}`} style={{ background: fallback }}>
-      {sku.image_url ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={sku.image_url}
+      {src && !errored ? (
+        <Image
+          src={src}
           alt={sku.title}
+          fill
+          sizes="(max-width: 768px) 50vw, 25vw"
           loading="lazy"
-          className="absolute inset-0 w-full h-full object-cover transition-transform duration-[800ms] group-hover:scale-[1.04]"
+          onError={() => setErrored(true)}
+          className="object-cover transition-transform duration-[800ms] group-hover:scale-[1.04]"
         />
       ) : (
         <span

@@ -27,7 +27,9 @@
  */
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useBrainSession } from "@/contexts/BrainSessionContext";
+import { cdnImage } from "@/lib/imageUrl";
 import {
   emitBrainEvent,
   getOutfit,
@@ -281,11 +283,14 @@ function PieceFigure({ sku, index, variant }: PieceFigureProps) {
     <figure className="group">
       <div className={`relative ${aspect} overflow-hidden`} style={{ background: "var(--sand)" }}>
         {sku.image_url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={sku.image_url}
+          // Detail-page hero — larger than card images, so request a wider
+          // Cloudinary variant (1200px) and let Next/Image responsively pick.
+          <Image
+            src={cdnImage(sku.image_url, { width: 1200 })}
             alt={sku.title}
-            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-[1.03]"
+            fill
+            sizes="(max-width: 768px) 100vw, 50vw"
+            className="object-cover transition-transform duration-700 group-hover:scale-[1.03]"
           />
         ) : (
           <div className="w-full h-full" style={{ background: "var(--sand)" }} />
