@@ -15,6 +15,7 @@ import Link from "next/link";
 import { useBrainSession } from "@/contexts/BrainSessionContext";
 import {
   getFeed,
+  type FeedGender,
   type FeedMetadata,
   type OutfitCard as OutfitCardType,
 } from "@/services/feed";
@@ -37,12 +38,16 @@ export default function Magazine({ anchorId }: Props) {
   const [loadingInitial, setLoadingInitial] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  /** Active gender filter. null = All (no filter applied server-side). */
+  const [gender, setGender] = useState<FeedGender>(null);
 
   // Refresh = drop cards + cursor, fetch page 1 with a new seed.
   const fetchPage1 = useCallback(async () => {
     setLoadingInitial(true);
     try {
-      const resp = await getFeed({ k: PAGE_SIZE, anchor_id: anchorId });
+      const resp = await getFeed({
+        k: PAGE_SIZE, anchor_id: anchorId, gender,
+      });
       setCards(resp.cards);
       setMeta(resp.feed_metadata);
       setCursor(resp.next_cursor);
@@ -52,7 +57,7 @@ export default function Magazine({ anchorId }: Props) {
     } finally {
       setLoadingInitial(false);
     }
-  }, [anchorId]);
+  }, [anchorId, gender]);
 
   // Load next page using the BE-issued cursor. De-duplicates by outfit_id so
   // a refresh during pagination can't double-render a card.
@@ -166,6 +171,7 @@ export default function Magazine({ anchorId }: Props) {
               A new issue every time you open this. Built from labels the algorithm
               doesn&rsquo;t know about yet &mdash; and increasingly, built for you.
             </p>
+            <GenderPills active={gender} onChange={setGender} />
           </section>
         )}
 
@@ -247,6 +253,48 @@ export default function Magazine({ anchorId }: Props) {
     </div>
   );
 }
+
+/** Gender filter pills under the magazine masthead. */
+function GenderPills({
+  active,
+  onChange,
+}: {
+  active: FeedGender;
+  onChange: (g: FeedGender) => void;
+}) {
+  const options: { label: string; value: FeedGender }[] = [
+    { label: "All", value: null },
+    { label: "Women", value: "female" },
+    { label: "Men", value: "male" },
+    { label: "Unisex", value: "unisex" },
+  ];
+  return (
+    <div className="mt-6 flex flex-wrap gap-2">
+      {options.map((o) => {
+        const isActive = active === o.value;
+        return (
+          <button
+            key={o.label}
+            onClick={() => onChange(o.value)}
+            className="px-4 py-1.5 text-xs uppercase tracking-[0.18em] transition-colors"
+            style={{
+              border: isActive
+                ? "1px solid var(--ink)"
+                : "1px solid rgba(26,24,21,0.2)",
+              background: isActive ? "var(--ink)" : "transparent",
+              color: isActive ? "var(--cream)" : "var(--ink)",
+              fontFamily: "'General Sans', sans-serif",
+            }}
+            aria-pressed={isActive}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 
 function Masthead({ anchorId }: { anchorId?: string }) {
   return (

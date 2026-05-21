@@ -57,6 +57,9 @@ export interface OutfitCard {
   constituent_sku_previews: PreviewSku[];
 }
 
+/** Tri-state gender filter for the magazine feed. `null` (or omitted) = no filter. */
+export type FeedGender = 'male' | 'female' | 'unisex' | null;
+
 export interface FeedMetadata {
   active_strategy: string;
   user_confidence: number;
@@ -66,6 +69,8 @@ export interface FeedMetadata {
   candidate_pool?: number;
   /** How many cards in this page the user has already seen at least once. */
   n_familiar_in_page?: number;
+  /** Echoed back so the FE can highlight the active gender pill. */
+  gender?: FeedGender;
 }
 
 export interface FeedResponse {
@@ -156,11 +161,15 @@ export async function getFeed(opts: {
    *  Omit (or pass null/undefined) to mint a fresh shuffle — that's a
    *  "refresh" — top cards rotate and exploration is re-injected. */
   cursor?: string | null;
+  /** Filter the feed by majority gender. The BE also drops GENDER_OUTLIER
+   *  outfits when this is set, so His/Hers/Unisex views stay clean. */
+  gender?: FeedGender;
 } = {}): Promise<FeedResponse> {
   const params = new URLSearchParams();
   if (opts.k) params.set("k", String(opts.k));
   if (opts.anchor_id) params.set("anchor_id", opts.anchor_id);
   if (opts.cursor) params.set("cursor", opts.cursor);
+  if (opts.gender) params.set("gender", opts.gender);
   const qs = params.toString();
   const r = await api.get(`/api/feed/${qs ? `?${qs}` : ""}`, { headers: brainHeaders() });
   return r.data;
