@@ -12,7 +12,7 @@
  *
  * No carousel generation, no captions, no ZIPs — just browse-and-grab.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -63,14 +63,21 @@ export default function OutfitLibraryPage() {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [authorized, setAuthorized] = useState<boolean | null>(null);
 
-  // List state
+  // List state — outfits accumulate across pages; the scroll position is the
+  // user's pagination state. `page` and `totalPages` are still server-paged
+  // (24 per fetch) but the UI never shows page numbers.
   const [outfits, setOutfits] = useState<OutfitLibrarySummary[]>([]);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [cluster, setCluster] = useState('');
   const [hasPrice, setHasPrice] = useState(false);
-  const [loading, setLoading] = useState(true);
+  /** Initial page-1 load — gates the whole grid render */
+  const [loadingInitial, setLoadingInitial] = useState(true);
+  /** Subsequent infinite-scroll page loads — appended to the grid */
+  const [loadingMore, setLoadingMore] = useState(false);
+  /** False once we've served the last page; flips back to true on filter change */
+  const [hasMore, setHasMore] = useState(true);
 
   // Detail panel state
   const [openOutfitId, setOpenOutfitId] = useState<string | null>(null);
@@ -89,34 +96,82 @@ export default function OutfitLibraryPage() {
       .catch(() => setAuthorized(false));
   }, [user, isAuthenticated, authLoading]);
 
-  // ── List load ─────────────────────────────────────────────────────────
-  const loadList = useCallback(async () => {
-    setLoading(true);
+  // ── Page 1 load (also triggered on filter change) ────────────────────
+  const loadFirstPage = useCallback(async () => {
+    setLoadingInitial(true);
     try {
       const resp = await fetchOutfitLibrary({
         cluster: cluster || undefined,
         hasPrice: hasPrice || undefined,
-        page,
+        page: 1,
         pageSize: PAGE_SIZE,
       });
       setOutfits(resp.outfits);
+      setPage(1);
       setTotalPages(resp.total_pages);
       setTotal(resp.total);
+      setHasMore(resp.total_pages > 1);
     } catch (e) {
       console.error('library load failed', e);
     } finally {
-      setLoading(false);
+      setLoadingInitial(false);
     }
-  }, [cluster, hasPrice, page]);
-
-  useEffect(() => {
-    if (authorized) loadList();
-  }, [authorized, loadList]);
-
-  // Reset to page 1 when filters change
-  useEffect(() => {
-    setPage(1);
   }, [cluster, hasPrice]);
+
+  // ── Next-page load for infinite scroll ────────────────────────────────
+  const loadingMoreRef = useRef(false);
+  const loadNextPage = useCallback(async () => {
+    if (loadingMoreRef.current) return;
+    if (!hasMore) return;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    const nextPage = page + 1;
+    try {
+      const resp = await fetchOutfitLibrary({
+        cluster: cluster || undefined,
+        hasPrice: hasPrice || undefined,
+        page: nextPage,
+        pageSize: PAGE_SIZE,
+      });
+      // Append + dedup by outfit_id (defensive against race)
+      setOutfits((prev) => {
+        const seen = new Set(prev.map((o) => o.outfit_id));
+        const fresh = resp.outfits.filter((o) => !seen.has(o.outfit_id));
+        return [...prev, ...fresh];
+      });
+      setPage(nextPage);
+      setHasMore(nextPage < resp.total_pages);
+    } catch (e) {
+      console.error('library next-page load failed', e);
+    } finally {
+      setLoadingMore(false);
+      loadingMoreRef.current = false;
+    }
+  }, [cluster, hasPrice, page, hasMore]);
+
+  // First load (after auth) + reload on filter change
+  useEffect(() => {
+    if (authorized) loadFirstPage();
+  }, [authorized, loadFirstPage]);
+
+  // IntersectionObserver sentinel — fetches the next page when the user
+  // scrolls within 800px of the bottom. Re-armed on every `page` change
+  // (the sentinel ref stays in the DOM; the observer just gets rebound).
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore) return;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          loadNextPage();
+        }
+      },
+      { rootMargin: '800px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loadNextPage]);
 
   // ── Detail load when an outfit is opened ──────────────────────────────
   useEffect(() => {
@@ -198,12 +253,13 @@ export default function OutfitLibraryPage() {
             With prices only
           </label>
           <div className="ml-auto text-xs text-gray-500">
-            page {page} of {Math.max(1, totalPages)}
+            {outfits.length.toLocaleString('en-IN')} loaded of {total.toLocaleString('en-IN')}
           </div>
         </div>
 
-        {/* Grid */}
-        {loading ? (
+        {/* Grid + infinite scroll. The IntersectionObserver sentinel below
+            the grid triggers loadNextPage when within 800px of viewport. */}
+        {loadingInitial ? (
           <div className="flex items-center justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
           </div>
@@ -219,28 +275,27 @@ export default function OutfitLibraryPage() {
           </div>
         )}
 
-        {/* Pagination */}
-        {!loading && totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              ← Prev
-            </Button>
-            <span className="px-3 text-sm text-gray-600">
-              {page} / {totalPages}
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Next →
-            </Button>
+        {/* Bottom sentinel + status */}
+        {!loadingInitial && (
+          <div ref={sentinelRef} className="mt-8 mb-12 flex justify-center">
+            {loadingMore ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading more…
+              </div>
+            ) : hasMore ? (
+              <span className="text-xs uppercase tracking-wider text-gray-400">
+                Scroll for more
+              </span>
+            ) : outfits.length > 0 ? (
+              <span className="text-xs uppercase tracking-wider text-gray-400">
+                End of results · {outfits.length.toLocaleString('en-IN')} outfits
+              </span>
+            ) : (
+              <span className="text-sm text-gray-500">
+                No outfits match these filters.
+              </span>
+            )}
           </div>
         )}
       </main>
