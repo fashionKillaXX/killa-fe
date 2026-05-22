@@ -189,7 +189,12 @@ export default function Magazine({ anchorId }: Props) {
                   outfit={card}
                   variant={variant}
                   index={i}
-                  onSaved={fetchPage1}
+                  // Intentionally NOT passing onSaved={fetchPage1}. Saving
+                  // an outfit used to refetch the entire feed, which yanked
+                  // the user's scroll position and re-shuffled every card
+                  // mid-scroll. The card's local "✓ Saved" optimistic state
+                  // is enough; the feed should only refresh when the user
+                  // explicitly refreshes or navigates away and back.
                 />
               </div>
             );
