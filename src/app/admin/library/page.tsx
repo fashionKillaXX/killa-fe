@@ -157,8 +157,18 @@ export default function OutfitLibraryPage() {
   // IntersectionObserver sentinel — fetches the next page when the user
   // scrolls within 800px of the bottom. Re-armed on every `page` change
   // (the sentinel ref stays in the DOM; the observer just gets rebound).
+  //
+  // `loadingInitial` MUST be in deps. The sentinel div is gated behind
+  // `!loadingInitial` in the JSX below, so on first mount sentinelRef is
+  // null when this effect first runs — observer is never armed. Without
+  // `loadingInitial` in deps, none of the other deps change after the
+  // page-1 load (cluster/hasPrice/page/hasMore all stay constant since
+  // page=1→1 and hasMore=true→true), so the effect never re-runs and
+  // "Scroll for more" sits forever. Adding `loadingInitial` makes the
+  // effect rerun the moment the sentinel actually enters the DOM.
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
+    if (loadingInitial) return;
     const el = sentinelRef.current;
     if (!el || !hasMore) return;
     const io = new IntersectionObserver(
@@ -171,7 +181,7 @@ export default function OutfitLibraryPage() {
     );
     io.observe(el);
     return () => io.disconnect();
-  }, [hasMore, loadNextPage]);
+  }, [hasMore, loadNextPage, loadingInitial]);
 
   // ── Detail load when an outfit is opened ──────────────────────────────
   useEffect(() => {
