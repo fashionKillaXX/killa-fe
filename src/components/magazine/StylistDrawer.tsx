@@ -422,7 +422,14 @@ function AnchoredOutfitChip({
     );
   }
 
-  const heroSku = outfit.constituent_skus.find((s: any) => s.image_url);
+  // Show ALL piece thumbs as a small horizontal strip. The single-hero
+  // version told the user nothing about what they were refining — a tote
+  // alone looks identical across a dozen outfits. The strip is bounded to
+  // 6 thumbs (covers every realistic case — top/bottom/footwear/bag/
+  // accessory/outer) and gracefully ignores SKUs without an image.
+  const thumbSkus = outfit.constituent_skus
+    .filter((s: any) => s.image_url)
+    .slice(0, 6);
   const verb = currentView === "anchor_mode" ? "Refining" : "Talking about";
 
   return (
@@ -435,13 +442,19 @@ function AnchoredOutfitChip({
           className="block w-1 self-stretch"
           style={{ background: "var(--terracotta)" }}
         />
-        {heroSku?.image_url && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={heroSku.image_url}
-            alt={outfit.title}
-            className="w-12 h-14 object-cover"
-          />
+        {thumbSkus.length > 0 && (
+          <div className="flex items-center gap-1 shrink-0">
+            {thumbSkus.map((s: any) => (
+              /* eslint-disable-next-line @next/next/no-img-element */
+              <img
+                key={s.product_id}
+                src={s.image_url!}
+                alt={s.title || outfit.title}
+                className="w-10 h-12 object-cover"
+                style={{ background: "rgba(0,0,0,0.04)" }}
+              />
+            ))}
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <p
@@ -702,16 +715,9 @@ function ComposedOutfitCard({
             >
               {saving ? "Saving…" : saved ? "✓ Saved" : "Save"}
             </button>
-            <button
-              onClick={() => onRefine(outfit)}
-              className="px-4 py-2 text-xs uppercase tracking-wider"
-              style={{
-                color: "var(--terracotta)",
-                fontFamily: "'General Sans', sans-serif",
-              }}
-            >
-              Refine →
-            </button>
+            {/* Refine button removed — its job (set the outfit as anchor and
+                continue the chat with focused_outfit_id) was duplicated by
+                Anchor on this, and shipping both confused users. */}
           </div>
         </div>
       </div>
