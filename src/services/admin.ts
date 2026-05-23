@@ -366,12 +366,25 @@ export interface OutfitLibraryDetail {
 export async function fetchOutfitLibrary(opts: {
   cluster?: string;
   hasPrice?: boolean;
+  /** Single-brand filter — only outfits that contain at least one SKU from this brand. */
+  brandId?: string;
+  /** Inclusive total-price floor in INR (after the all-or-nothing outfit total). */
+  priceMin?: number;
+  /** Inclusive total-price ceiling in INR. */
+  priceMax?: number;
+  /** Free-text query. When set, results are ordered by vector-similarity (pgvector
+   *  HNSW over the joint outfit embedding) instead of coherence_score. */
+  q?: string;
   page?: number;
   pageSize?: number;
 } = {}): Promise<OutfitLibraryListResponse> {
   const params = new URLSearchParams();
   if (opts.cluster) params.set('cluster', opts.cluster);
   if (opts.hasPrice) params.set('has_price', '1');
+  if (opts.brandId) params.set('brand_id', opts.brandId);
+  if (opts.priceMin != null) params.set('price_min', String(opts.priceMin));
+  if (opts.priceMax != null) params.set('price_max', String(opts.priceMax));
+  if (opts.q && opts.q.trim()) params.set('q', opts.q.trim());
   if (opts.page) params.set('page', String(opts.page));
   if (opts.pageSize) params.set('page_size', String(opts.pageSize));
   const res = await fetch(
@@ -386,6 +399,22 @@ export async function fetchOutfitLibrary(opts: {
     total: data.total,
     total_pages: data.total_pages,
   };
+}
+
+export interface OutfitLibraryBrand {
+  brand_id: string;
+  name: string;
+  /** How many default outfits contain at least one SKU from this brand. */
+  outfit_count: number;
+}
+
+export async function fetchOutfitLibraryBrands(): Promise<OutfitLibraryBrand[]> {
+  const res = await fetch(
+    `${BACKEND_URL}/api/admin/outfits/library/brands/`,
+    { headers: authHeaders() },
+  );
+  const data = await res.json();
+  return (data.brands || []) as OutfitLibraryBrand[];
 }
 
 export async function fetchOutfitLibraryDetail(

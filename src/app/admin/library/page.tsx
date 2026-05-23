@@ -20,10 +20,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   checkAdminAccess,
   fetchOutfitLibrary,
+  fetchOutfitLibraryBrands,
   fetchOutfitLibraryDetail,
   type OutfitLibrarySummary,
   type OutfitLibraryDetail,
   type OutfitLibraryPiece,
+  type OutfitLibraryBrand,
 } from '@/services/admin';
 import { cdnImage } from '@/lib/imageUrl';
 import { formatPriceINR } from '@/lib/format';
@@ -72,6 +74,17 @@ export default function OutfitLibraryPage() {
   const [total, setTotal] = useState(0);
   const [cluster, setCluster] = useState('');
   const [hasPrice, setHasPrice] = useState(false);
+  /** Single-brand filter (UUID). Empty string = no filter. */
+  const [brandId, setBrandId] = useState('');
+  /** Inclusive price range. Empty string = no filter on that side. */
+  const [priceMin, setPriceMin] = useState('');
+  const [priceMax, setPriceMax] = useState('');
+  /** Free-text search; the actual server query is the debounced version. */
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  /** Brand options surfaced in the dropdown (brands that actually appear in
+   *  default outfits + their outfit counts). Loaded once on auth. */
+  const [brands, setBrands] = useState<OutfitLibraryBrand[]>([]);
   /** Initial page-1 load — gates the whole grid render */
   const [loadingInitial, setLoadingInitial] = useState(true);
   /** Subsequent infinite-scroll page loads — appended to the grid */
@@ -96,6 +109,21 @@ export default function OutfitLibraryPage() {
       .catch(() => setAuthorized(false));
   }, [user, isAuthenticated, authLoading]);
 
+  // Parse the price-range inputs once per render. Empty / non-numeric inputs
+  // map to undefined (i.e. no filter on that side). Min must be >= 0; max
+  // must be > min when both set, otherwise we drop the max and let the BE
+  // see only the min.
+  const parsedPriceMin = (() => {
+    const n = parseInt(priceMin, 10);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  })();
+  const parsedPriceMax = (() => {
+    const n = parseInt(priceMax, 10);
+    if (!Number.isFinite(n) || n < 0) return undefined;
+    if (parsedPriceMin != null && n < parsedPriceMin) return undefined;
+    return n;
+  })();
+
   // ── Page 1 load (also triggered on filter change) ────────────────────
   const loadFirstPage = useCallback(async () => {
     setLoadingInitial(true);
@@ -103,6 +131,10 @@ export default function OutfitLibraryPage() {
       const resp = await fetchOutfitLibrary({
         cluster: cluster || undefined,
         hasPrice: hasPrice || undefined,
+        brandId: brandId || undefined,
+        priceMin: parsedPriceMin,
+        priceMax: parsedPriceMax,
+        q: search || undefined,
         page: 1,
         pageSize: PAGE_SIZE,
       });
@@ -116,7 +148,7 @@ export default function OutfitLibraryPage() {
     } finally {
       setLoadingInitial(false);
     }
-  }, [cluster, hasPrice]);
+  }, [cluster, hasPrice, brandId, parsedPriceMin, parsedPriceMax, search]);
 
   // ── Next-page load for infinite scroll ────────────────────────────────
   const loadingMoreRef = useRef(false);
@@ -130,6 +162,10 @@ export default function OutfitLibraryPage() {
       const resp = await fetchOutfitLibrary({
         cluster: cluster || undefined,
         hasPrice: hasPrice || undefined,
+        brandId: brandId || undefined,
+        priceMin: parsedPriceMin,
+        priceMax: parsedPriceMax,
+        q: search || undefined,
         page: nextPage,
         pageSize: PAGE_SIZE,
       });
@@ -147,7 +183,24 @@ export default function OutfitLibraryPage() {
       setLoadingMore(false);
       loadingMoreRef.current = false;
     }
-  }, [cluster, hasPrice, page, hasMore]);
+  }, [cluster, hasPrice, brandId, parsedPriceMin, parsedPriceMax, search, page, hasMore]);
+
+  // Debounce the search input → server query. 350 ms is long enough to swallow
+  // most typing bursts and short enough that the user doesn't notice the lag.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // Load the brand list once we know the user is authorized. We only show
+  // brands that actually appear in default outfits — saves us from rendering
+  // a 4k-entry dropdown.
+  useEffect(() => {
+    if (!authorized) return;
+    fetchOutfitLibraryBrands()
+      .then(setBrands)
+      .catch((e) => console.error('brand list load failed', e));
+  }, [authorized]);
 
   // First load (after auth) + reload on filter change
   useEffect(() => {
@@ -243,28 +296,89 @@ export default function OutfitLibraryPage() {
 
       <main className="mx-auto max-w-7xl px-6 py-6">
         {/* Filters */}
-        <div className="mb-4 flex flex-wrap items-center gap-3">
-          <select
-            value={cluster}
-            onChange={(e) => setCluster(e.target.value)}
-            className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
-          >
-            {CLUSTER_OPTIONS.map((c) => (
-              <option key={c.value} value={c.value}>{c.label}</option>
-            ))}
-          </select>
-          <label className="flex items-center gap-2 text-sm text-gray-700">
+        <div className="mb-4 space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search — debounced. When set, ordering switches to vector
+                similarity on the BE; we surface that below the row. */}
             <input
-              type="checkbox"
-              checked={hasPrice}
-              onChange={(e) => setHasPrice(e.target.checked)}
-              className="rounded"
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search outfits…"
+              className="min-w-[220px] flex-1 rounded border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+              aria-label="Search outfits by similarity"
             />
-            With prices only
-          </label>
-          <div className="ml-auto text-xs text-gray-500">
-            {outfits.length.toLocaleString('en-IN')} loaded of {total.toLocaleString('en-IN')}
+            <select
+              value={cluster}
+              onChange={(e) => setCluster(e.target.value)}
+              className="rounded border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+            >
+              {CLUSTER_OPTIONS.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+            <select
+              value={brandId}
+              onChange={(e) => setBrandId(e.target.value)}
+              className="max-w-[220px] rounded border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+              aria-label="Filter by brand"
+            >
+              <option value="">All brands</option>
+              {brands.map((b) => (
+                <option key={b.brand_id} value={b.brand_id}>
+                  {b.name} ({b.outfit_count.toLocaleString('en-IN')})
+                </option>
+              ))}
+            </select>
+            <div className="flex items-center gap-1 text-sm text-gray-700">
+              <span className="text-gray-500">₹</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={priceMin}
+                onChange={(e) => setPriceMin(e.target.value)}
+                placeholder="min"
+                className="w-20 rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+                aria-label="Minimum outfit total price"
+              />
+              <span className="text-gray-400">–</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                value={priceMax}
+                onChange={(e) => setPriceMax(e.target.value)}
+                placeholder="max"
+                className="w-20 rounded border border-gray-300 bg-white px-2 py-1.5 text-sm focus:border-gray-500 focus:outline-none"
+                aria-label="Maximum outfit total price"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm text-gray-700">
+              <input
+                type="checkbox"
+                checked={hasPrice}
+                onChange={(e) => setHasPrice(e.target.checked)}
+                className="rounded"
+              />
+              With prices only
+            </label>
+            <div className="ml-auto text-xs text-gray-500">
+              {outfits.length.toLocaleString('en-IN')} loaded of {total.toLocaleString('en-IN')}
+            </div>
           </div>
+          {search && (
+            <div className="text-xs text-gray-500">
+              Ordered by similarity to <span className="font-medium text-gray-700">“{search}”</span>
+              <button
+                type="button"
+                onClick={() => { setSearchInput(''); setSearch(''); }}
+                className="ml-2 underline hover:text-gray-700"
+              >
+                clear
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Grid + infinite scroll. The IntersectionObserver sentinel below
